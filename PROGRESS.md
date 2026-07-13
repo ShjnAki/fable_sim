@@ -7,9 +7,9 @@
 
 ## État actuel
 
-**Phase en cours :** Phase 0 — Décisions d'architecture
-**Statut :** document livré (`docs/architecture.md`), **en attente de validation par Shin**
-**Dernier commit pertinent :** init du repo + livrable Phase 0
+**Phase en cours :** Phase 1 — Monde statique
+**Statut :** plan d'implémentation rédigé (`docs/superpowers/plans/2026-07-13-phase-1-monde-statique.md`), exécution à lancer
+**Dernier commit pertinent :** validation Phase 0 + plan Phase 1
 
 ---
 
@@ -56,7 +56,7 @@ résolution de la grille de biomasse (~128×128).)_
 ## Historique des phases
 
 ### Phase 0 — Décisions d'architecture
-- Statut : **document livré, en attente de validation**
+- Statut : **VALIDÉE par Shin le 2026-07-13**
 - Livrable : `docs/architecture.md`
 - Questions de cadrage posées et répondues (cible agents, style visuel,
   navigateurs, persistance) — réponses consignées en §0 du document.
