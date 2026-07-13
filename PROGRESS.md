@@ -7,10 +7,9 @@
 
 ## État actuel
 
-**Phase en cours :** Phase 1 — Monde statique
-**Statut :** code terminé et commité ; **vérification visuelle par Shin en attente**
-(checklist : balade 60 FPS, cycle jour/nuit, repousse de la végétation, overlay)
-**Dernier commit pertinent :** `[Phase 1] Végétation instanciée pilotée par la biomasse`
+**Phase en cours :** Phase 2 — Un agent qui vit
+**Statut :** démarrage (plan à écrire puis exécution)
+**Dernier commit pertinent :** validation Phase 1
 
 ---
 
@@ -73,7 +72,8 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
 - Livrable : `docs/architecture.md`
 
 ### Phase 1 — Monde statique
-- Statut : **code terminé le 2026-07-13** (plan exécuté en entier :
+- Statut : **VALIDÉE visuellement par Shin le 2026-07-13** (« l'île est belle »)
+  (plan exécuté en entier :
   `docs/superpowers/plans/2026-07-13-phase-1-monde-statique.md`)
 - Livré : monorepo pnpm (shared/sim/client), terrain fBm insulaire + zones,
   biomasse logistique, world/tick 20 Hz/snapshot, client Three.js toon, eau,
