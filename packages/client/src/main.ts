@@ -1,7 +1,6 @@
-import * as THREE from "three";
-import { DEFAULT_WORLD_CONFIG } from "@eco/shared";
-import { generateTerrain } from "@eco/sim";
+import { createMainThreadHost } from "./hosts/mainThreadHost";
 import { createCameraControls } from "./render/cameraControls";
+import { createDayNight, formatTimeOfDay } from "./render/dayNight";
 import { createScene } from "./render/scene";
 import { buildTerrainMesh } from "./render/terrainMesh";
 import { buildWaterMesh } from "./render/waterMesh";
@@ -13,18 +12,14 @@ const { scene, camera, renderer } = createScene(canvas);
 const overlay = createOverlay(document.querySelector<HTMLDivElement>("#overlay")!);
 const stats = createFrameStats();
 
-// Terrain généré directement (le SimHost prend le relais en Task 8).
-const config = DEFAULT_WORLD_CONFIG;
-const terrain = generateTerrain(config);
+// La sim tourne « ailleurs » (ici : main thread) ; le rendu n'est que spectateur.
+const host = createMainThreadHost();
+const config = host.getConfig();
+const terrain = { heights: host.getTerrainHeights(), zones: host.getTerrainZones() };
+
 scene.add(buildTerrainMesh(terrain, config));
 scene.add(buildWaterMesh(config));
-
-// Éclairage provisoire (remplacé par le cycle jour/nuit en Task 8)
-const sun = new THREE.DirectionalLight(0xffffff, 1.1);
-sun.position.set(200, 300, 100);
-scene.add(sun);
-scene.add(new THREE.HemisphereLight(0xbfe3ff, 0x6a8f5a, 0.5));
-
+const dayNight = createDayNight(scene);
 const cameraControls = createCameraControls(camera, renderer.domElement, config);
 
 let last = performance.now();
@@ -35,11 +30,19 @@ renderer.setAnimationLoop((now) => {
   last = now;
   stats.addFrame(frameMs);
 
+  host.update(now);
+  const [, snapshot] = host.latestSnapshots();
+  if (snapshot) dayNight.update(snapshot.timeOfDay);
+
   cameraControls.update(frameMs / 1000);
 
   if (now - lastOverlayUpdate > 500) {
     lastOverlayUpdate = now;
     overlay.setLine("fps", `FPS ${stats.fps().toFixed(0)}  (${stats.avgFrameMs().toFixed(1)} ms)`);
+    if (snapshot) {
+      overlay.setLine("tick", `tick ${snapshot.lastTickDurationMs.toFixed(2)} ms  (#${snapshot.tickCount})`);
+      overlay.setLine("time", `heure ${formatTimeOfDay(snapshot.timeOfDay)}`);
+    }
   }
 
   renderer.render(scene, camera);
