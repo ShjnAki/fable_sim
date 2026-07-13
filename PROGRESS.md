@@ -8,8 +8,12 @@
 ## État actuel
 
 **Phase en cours :** Phase 3 — Population & voisinage
-**Statut :** démarrage (brainstorm puis plan à écrire)
-**Dernier commit pertinent :** validation Phase 2
+**Statut :** terminée côté code (9 tâches du plan exécutées, 71 tests verts,
+typecheck OK). Attesté en headless : 30 fondateurs → attrition initiale (27)
+→ les naissances l'emportent (33+) ; graphe de population vivant ; charge
+600 agents = tick 0,80 ms (budget 3 ms). **Validation visuelle par Shin en
+attente** — vérifier notamment le 60 FPS à `?pop=600` sur vrai GPU.
+**Dernier commit pertinent :** test de charge (T8)
 
 ---
 
@@ -25,7 +29,13 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
 - Palette jour/nuit : keyframes dans `packages/client/src/render/dayNight.ts`.
 - `HERBIVORE` (`packages/shared/src/species.ts`) — tout le comportement agent :
   décroissances faim/soif, seuils FSM (critique/déclenchement/hystérésis),
-  vitesses de steering, rayon de perception, débits manger/boire.
+  vitesses de steering, rayon de perception, débits manger/boire ; et depuis la
+  Phase 3 : poids boids (séparation/alignement/cohésion), seuils de
+  reproduction (éligibilité, coût 0.35, cooldown 60 s), âge adulte 45 s, âge
+  max 600 ± 120 s. **L'équilibre population/biomasse n'est PAS tuné finement —
+  c'est le travail de la Phase 4 (Lotka-Volterra).**
+- `initialHerbivores` (30) dans `DEFAULT_WORLD_CONFIG` ; override `?pop=N`
+  côté client pour les tests de charge.
 
 ---
 
@@ -38,8 +48,18 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
   cellules sales si ça pèse un jour.
 - **Pas d'ombres portées** — choix perf assumé (architecture §9).
 - **Recherche d'eau = scan linéaire de toutes les cellules de rive** à
-  l'acquisition de cible (pas à chaque tick). OK à 1 agent ; à surveiller en
-  Phase 3 (grille spatiale prévue).
+  l'acquisition de cible (pas à chaque tick). Toujours OK à 600 agents
+  (tick 0,80 ms mesuré) ; à revoir si le tick dérive.
+- **SeekMate requête la grille (r = 60 m) à chaque tick par prétendant** —
+  couvert par le test de charge (0,80 ms à 600 agents), à surveiller si les
+  prétendants simultanés se comptent par centaines.
+- **Séparation boids coupée à < 4 m du partenaire en SeekMate** (écart spec
+  assumé) : sans ça, la séparation interdit le contact de reproduction.
+- **makeSnapshot alloue N objets par tick** — toléré (frontière sim→rendu),
+  à passer en ArrayBuffer réutilisé en Phase 6 si besoin.
+- **Attrition initiale des fondateurs (~10 %)** : partis du centre sans
+  mémoire d'eau, certains meurent de soif avant de trouver une rive. Assumé
+  (la population récupère) — se tune via `seekWaterBelow` si gênant.
 - **Couleur du corps = état FSM** — choix debug assumé, à revoir quand
   plusieurs espèces coexisteront (Phase 3/4).
 - **L'agent ignore les pentes** (pas d'évitement de roche) — il peut gravir de
@@ -106,7 +126,17 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
   50 tests, typecheck strict OK.
 
 ### Phase 3 — Population & voisinage
-- Statut : à venir
+- Statut : **code terminé le 2026-07-14, validation visuelle Shin en attente**
+  (spec : `docs/superpowers/specs/2026-07-14-phase-3-population-design.md`,
+  plan exécuté en entier :
+  `docs/superpowers/plans/2026-07-14-phase-3-population-voisinage.md`)
+- Livré : grille spatiale uniforme (tri de comptage, `forEachNeighbor`),
+  boids (3 forces en errance, séparation partout), reproduction SeekMate
+  (éligibilité, appariement au plus proche, naissance par le parent au plus
+  petit id, coût + cooldown), juvéniles (échelle 0.6, adultes à 45 s), mort
+  de vieillesse (600 ± 120 s), 30 fondateurs adultes étalés, graphe de
+  population canvas (1 Hz sim, fenêtre 10 min), `?pop=N`, overlay `agents N`.
+  71 tests (dont charge : 600 agents = tick 0,80 ms), typecheck strict OK.
 
 ### Phase 4 — Chaîne trophique
 - Statut : à venir
