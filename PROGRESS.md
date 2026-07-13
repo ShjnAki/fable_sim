@@ -7,12 +7,9 @@
 
 ## État actuel
 
-**Phase en cours :** Phase 2 — Un agent qui vit
-**Statut :** terminée côté code (7 tâches du plan exécutées, 50 tests verts,
-typecheck OK, comportement attesté en headless : cycles Wander → SeekWater →
-Drink → SeekFood → Eat → Wander observés). **Validation visuelle par Shin en
-attente** dans son navigateur (`pnpm dev`).
-**Dernier commit pertinent :** rendu agent + inspecteur (Task 6)
+**Phase en cours :** Phase 3 — Population & voisinage
+**Statut :** démarrage (brainstorm puis plan à écrire)
+**Dernier commit pertinent :** validation Phase 2
 
 ---
 
@@ -95,7 +92,8 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
 - Reste : validation visuelle par Shin dans son navigateur.
 
 ### Phase 2 — Un agent qui vit
-- Statut : **code terminé le 2026-07-14, validation visuelle Shin en attente**
+- Statut : **VALIDÉE visuellement par Shin le 2026-07-14** (« il se balade et
+  suit le rythme fixé, c'est parfait »)
   (plan exécuté en entier :
   `docs/superpowers/plans/2026-07-13-phase-2-un-agent-qui-vit.md`)
 - Livré : un herbivore unique vivant — besoins énergie/hydratation, FSM à
