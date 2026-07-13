@@ -6,3 +6,4 @@ export * from "./steering";
 export * from "./decide";
 export * from "./agentTick";
 export * from "./spatialGrid";
+export * from "./boids";
