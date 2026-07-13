@@ -3,6 +3,14 @@ import type { Agent } from "./agent";
 
 export interface Decision { state: AgentState; cause: string; }
 
+/** Éligible à la reproduction : adulte, repu, désaltéré, cooldown écoulé. */
+export function isMateEligible(a: Agent, p: HerbivoreParams): boolean {
+  return a.ageSeconds >= p.adultAgeSeconds
+    && a.ageSeconds >= a.nextMateAgeSeconds
+    && a.energy >= p.mateEnergyMin
+    && a.hydration >= p.mateHydrationMin;
+}
+
 /**
  * Priorités strictes (architecture §7) : soif critique > faim critique >
  * fins d'action (hystérésis) > besoins ordinaires depuis l'errance.
@@ -25,9 +33,14 @@ export function decide(a: Agent, p: HerbivoreParams): Decision | null {
     if (a.hydration < p.seekWaterBelow) return { state: "SeekWater", cause: "repu, soif" };
     return { state: "Wander", cause: "repu" };
   }
+  if (a.state === "SeekMate") {
+    if (a.hydration < p.seekWaterBelow) return { state: "SeekWater", cause: "soif" };
+    if (a.energy < p.seekFoodBelow) return { state: "SeekFood", cause: "faim" };
+  }
   if (a.state === "Wander") {
     if (a.hydration < p.seekWaterBelow) return { state: "SeekWater", cause: "soif" };
     if (a.energy < p.seekFoodBelow) return { state: "SeekFood", cause: "faim" };
+    if (isMateEligible(a, p)) return { state: "SeekMate", cause: "prêt à se reproduire" };
   }
   return null;
 }

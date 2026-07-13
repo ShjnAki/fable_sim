@@ -39,3 +39,41 @@ describe("decide — priorités strictes", () => {
     expect(decide(a, HERBIVORE)).toBeNull();
   });
 });
+
+describe("decide — reproduction", () => {
+  const adult = () => {
+    const a = mk();
+    a.ageSeconds = HERBIVORE.adultAgeSeconds;
+    a.nextMateAgeSeconds = 0;
+    a.energy = 0.9; a.hydration = 0.9;
+    return a;
+  };
+
+  it("adulte repu depuis Wander → SeekMate", () => {
+    const a = adult();
+    a.state = "Wander";
+    expect(decide(a, HERBIVORE)).toEqual({ state: "SeekMate", cause: "prêt à se reproduire" });
+  });
+  it("juvénile : jamais SeekMate", () => {
+    const a = adult();
+    a.ageSeconds = HERBIVORE.adultAgeSeconds - 1;
+    a.state = "Wander";
+    expect(decide(a, HERBIVORE)).toBeNull();
+  });
+  it("cooldown : pas de SeekMate avant nextMateAgeSeconds", () => {
+    const a = adult();
+    a.nextMateAgeSeconds = a.ageSeconds + 10;
+    a.state = "Wander";
+    expect(decide(a, HERBIVORE)).toBeNull();
+  });
+  it("la soif ordinaire interrompt SeekMate", () => {
+    const a = adult();
+    a.state = "SeekMate"; a.hydration = 0.45;
+    expect(decide(a, HERBIVORE)?.state).toBe("SeekWater");
+  });
+  it("la faim ordinaire interrompt SeekMate", () => {
+    const a = adult();
+    a.state = "SeekMate"; a.energy = 0.55;
+    expect(decide(a, HERBIVORE)?.state).toBe("SeekFood");
+  });
+});
