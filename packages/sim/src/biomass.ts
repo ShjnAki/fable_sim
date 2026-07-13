@@ -15,6 +15,25 @@ export function createBiomass(terrain: TerrainData, config: WorldConfig, rng: Rn
   return { values };
 }
 
+/** Index de la cellule biomasse/zone contenant (x, z) — clampé aux bords. */
+export function cellIndexAt(config: WorldConfig, x: number, z: number): number {
+  const b = config.biomassResolution;
+  const half = config.sizeMeters / 2;
+  const ix = Math.min(b - 1, Math.max(0, Math.floor(((x + half) / config.sizeMeters) * b)));
+  const iz = Math.min(b - 1, Math.max(0, Math.floor(((z + half) / config.sizeMeters) * b)));
+  return iz * b + ix;
+}
+
+export function cellCenterX(config: WorldConfig, i: number): number {
+  const b = config.biomassResolution;
+  return ((i % b) + 0.5) * (config.sizeMeters / b) - config.sizeMeters / 2;
+}
+
+export function cellCenterZ(config: WorldConfig, i: number): number {
+  const b = config.biomassResolution;
+  return (Math.floor(i / b) + 0.5) * (config.sizeMeters / b) - config.sizeMeters / 2;
+}
+
 /**
  * Repousse logistique : db/dt = r·b·(1−b). C'est l'« amortisseur » clé de
  * l'équilibre futur (Phase 4) : repousse rapide à mi-charge, lente près de 0 et 1.
