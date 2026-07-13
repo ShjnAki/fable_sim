@@ -11,6 +11,8 @@ export interface TerrainData {
   heights: Float32Array;
   /** biomassResolution² zones, évaluées au centre de chaque cellule. */
   zones: Uint8Array;
+  /** Indices des cellules d'herbe adjacentes à l'eau (points où boire). */
+  shoreCells: Uint32Array;
 }
 
 /** smoothstep décroissant : 1 quand d <= inner, 0 quand d >= outer. */
@@ -55,7 +57,9 @@ export function generateTerrain(config: WorldConfig): TerrainData {
     }
   }
 
-  const terrain: TerrainData = { heights, zones: new Uint8Array(0) };
+  const terrain: TerrainData = {
+    heights, zones: new Uint8Array(0), shoreCells: new Uint32Array(0),
+  };
 
   // Zones aux centres des cellules de la grille biomasse.
   const b = config.biomassResolution;
@@ -69,6 +73,20 @@ export function generateTerrain(config: WorldConfig): TerrainData {
     }
   }
   terrain.zones = zones;
+
+  // Cellules de rive : herbe en 4-voisinage d'une cellule d'eau — les abreuvoirs.
+  const shore: number[] = [];
+  for (let iz = 0; iz < b; iz++) {
+    for (let ix = 0; ix < b; ix++) {
+      const i = iz * b + ix;
+      if (zones[i] !== ZONE_GRASS) continue;
+      if ((ix > 0 && zones[i - 1] === ZONE_WATER) ||
+          (ix < b - 1 && zones[i + 1] === ZONE_WATER) ||
+          (iz > 0 && zones[i - b] === ZONE_WATER) ||
+          (iz < b - 1 && zones[i + b] === ZONE_WATER)) shore.push(i);
+    }
+  }
+  terrain.shoreCells = Uint32Array.from(shore);
   return terrain;
 }
 

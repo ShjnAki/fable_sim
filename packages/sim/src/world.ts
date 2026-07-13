@@ -44,5 +44,6 @@ export function makeSnapshot(world: World, lastTickDurationMs: number): TickSnap
     simTimeSeconds: world.simTimeSeconds,
     timeOfDay: timeOfDay(world),
     lastTickDurationMs,
+    agents: [], // rempli en Task 5 (tickAgent + intégration World)
   };
 }

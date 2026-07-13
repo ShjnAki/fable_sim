@@ -89,6 +89,24 @@ describe("classifyZone", () => {
   });
 });
 
+describe("shoreCells", () => {
+  it("chaque cellule de rive est de l'herbe avec un voisin eau", () => {
+    const t = generateTerrain(cfg);
+    const b = cfg.biomassResolution;
+    expect(t.shoreCells.length).toBeGreaterThan(0);
+    for (const i of t.shoreCells) {
+      expect(t.zones[i]).toBe(ZONE_GRASS);
+      const ix = i % b, iz = Math.floor(i / b);
+      const hasWater =
+        (ix > 0 && t.zones[i - 1] === ZONE_WATER) ||
+        (ix < b - 1 && t.zones[i + 1] === ZONE_WATER) ||
+        (iz > 0 && t.zones[i - b] === ZONE_WATER) ||
+        (iz < b - 1 && t.zones[i + b] === ZONE_WATER);
+      expect(hasWater).toBe(true);
+    }
+  });
+});
+
 describe("slopeAt", () => {
   it("est ~0 sur l'eau du bord (terrain plat à 0)", () => {
     const t = generateTerrain(cfg);

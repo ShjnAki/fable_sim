@@ -16,7 +16,12 @@ const stats = createFrameStats();
 // La sim tourne « ailleurs » (ici : main thread) ; le rendu n'est que spectateur.
 const host = createMainThreadHost();
 const config = host.getConfig();
-const terrain = { heights: host.getTerrainHeights(), zones: host.getTerrainZones() };
+// shoreCells vide : le rendu n'utilise jamais les rives (compromis plan Phase 2).
+const terrain = {
+  heights: host.getTerrainHeights(),
+  zones: host.getTerrainZones(),
+  shoreCells: new Uint32Array(0),
+};
 
 scene.add(buildTerrainMesh(terrain, config));
 scene.add(buildWaterMesh(config));
