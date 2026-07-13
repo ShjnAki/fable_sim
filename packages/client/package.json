@@ -9,6 +9,11 @@
   },
   "dependencies": {
     "@eco/shared": "workspace:*",
-    "@eco/sim": "workspace:*"
+    "@eco/sim": "workspace:*",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.185.1",
+    "vite": "^8.1.4"
   }
 }
