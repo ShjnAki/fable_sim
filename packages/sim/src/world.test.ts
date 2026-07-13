@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { HERBIVORE } from "@eco/shared";
 import { createWorld, makeSnapshot, tickWorld, timeOfDay } from "./world";
 import { ZONE_GRASS } from "./terrain";
 
@@ -40,6 +41,15 @@ describe("world", () => {
     const s = makeSnapshot(w, 0);
     expect(s.agents.length).toBe(1);
     expect(s.agents[0]).toMatchObject({ id: 1, state: expect.any(String) });
+  });
+
+  it("le snapshot expose adult selon l'âge", () => {
+    const w = createWorld();
+    const a = w.agents[0]!;
+    a.ageSeconds = 0;
+    expect(makeSnapshot(w, 0).agents[0]!.adult).toBe(false);
+    a.ageSeconds = HERBIVORE.adultAgeSeconds;
+    expect(makeSnapshot(w, 0).agents[0]!.adult).toBe(true);
   });
 
   it("makeSnapshot expose les champs du protocole", () => {

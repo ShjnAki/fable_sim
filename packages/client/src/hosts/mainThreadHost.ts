@@ -1,4 +1,4 @@
-import type { SimHost, TickSnapshot, WorldConfig } from "@eco/shared";
+import { HERBIVORE, type SimHost, type TickSnapshot, type WorldConfig } from "@eco/shared";
 import { createWorld, makeSnapshot, tickWorld } from "@eco/sim";
 import { advanceAccumulator } from "../loop/accumulator";
 
@@ -32,9 +32,11 @@ export function createMainThreadHost(overrides: Partial<WorldConfig> = {}): SimH
     latestSnapshots: () => [prev, latest] as const,
     interpolationAlpha: () => accumulatorMs / tickIntervalMs,
     getAgentDetail(id: number) {
-      // L'objet Agent vivant satisfait structurellement AgentDetail — en mode
-      // local l'inspecteur lit l'état réel sans copie (le mode distant copiera).
-      return world.agents.find((a) => a.id === id) ?? null;
+      // Copie légère à la demande (~2 Hz) : l'Agent vivant n'a pas le champ
+      // dérivé `adult`, on complète ici.
+      const a = world.agents.find((x) => x.id === id);
+      if (!a) return null;
+      return { ...a, adult: a.ageSeconds >= HERBIVORE.adultAgeSeconds };
     },
     setSpeed(multiplier: number): void {
       speed = multiplier;

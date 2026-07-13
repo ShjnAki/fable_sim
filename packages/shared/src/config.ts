@@ -21,6 +21,8 @@ export interface WorldConfig {
   dayLengthSeconds: number;
   /** Fréquence de tick de la sim (Hz). */
   tickRateHz: number;
+  /** Nombre d'herbivores au démarrage du monde. */
+  initialHerbivores: number;
 }
 
 export const DEFAULT_WORLD_CONFIG: WorldConfig = {
@@ -35,4 +37,5 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   biomassRegrowthRate: 0.08,
   dayLengthSeconds: 600,
   tickRateHz: 20,
+  initialHerbivores: 30,
 };

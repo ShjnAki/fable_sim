@@ -20,6 +20,8 @@ export interface AgentSnapshot {
   state: AgentState;
   energy: number;
   hydration: number;
+  /** true si ageSeconds ≥ adultAgeSeconds — calculé côté sim. */
+  adult: boolean;
 }
 
 /** Vue complète d'un agent, à la demande — pour l'inspecteur (débuggabilité). */
