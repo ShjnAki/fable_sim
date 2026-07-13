@@ -9,6 +9,7 @@ import { buildWaterMesh } from "./render/waterMesh";
 import { createFrameStats } from "./ui/frameStats";
 import { createInspector } from "./ui/inspector";
 import { createOverlay } from "./ui/overlay";
+import { createPopulationGraph } from "./ui/populationGraph";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#app")!;
 const { scene, camera, renderer } = createScene(canvas);
@@ -16,7 +17,14 @@ const overlay = createOverlay(document.querySelector<HTMLDivElement>("#overlay")
 const stats = createFrameStats();
 
 // La sim tourne « ailleurs » (ici : main thread) ; le rendu n'est que spectateur.
-const host = createMainThreadHost();
+// ?pop=600 : test de charge (critère Phase 3 : 500+ agents à 60 FPS).
+const urlParams = new URLSearchParams(location.search);
+const popOverride = Number(urlParams.get("pop") ?? "");
+const host = createMainThreadHost(
+  Number.isFinite(popOverride) && popOverride > 0
+    ? { initialHerbivores: Math.floor(popOverride) }
+    : {},
+);
 const config = host.getConfig();
 // shoreCells vide : le rendu n'utilise jamais les rives (compromis plan Phase 2).
 const terrain = {
@@ -33,6 +41,7 @@ const vegetation = createVegetation(terrain, config, scene);
 vegetation.refresh(host.getBiomass());
 const agentsMesh = createAgentsMesh(scene, terrain, config);
 const inspector = createInspector(document.querySelector<HTMLDivElement>("#inspector")!);
+const popGraph = createPopulationGraph(document.querySelector<HTMLCanvasElement>("#popgraph")!);
 
 let last = performance.now();
 let lastOverlayUpdate = 0;
@@ -54,6 +63,7 @@ renderer.setAnimationLoop((now) => {
   }
 
   agentsMesh.update(prevSnap?.agents ?? null, snapshot?.agents ?? null, host.interpolationAlpha());
+  if (snapshot) popGraph.update(snapshot.simTimeSeconds, snapshot.agents.length);
 
   cameraControls.update(frameMs / 1000);
 
@@ -64,6 +74,7 @@ renderer.setAnimationLoop((now) => {
       overlay.setLine("tick", `tick ${snapshot.lastTickDurationMs.toFixed(2)} ms  (#${snapshot.tickCount})`);
       overlay.setLine("time", `heure ${formatTimeOfDay(snapshot.timeOfDay)}`);
       overlay.setLine("veg", `végétation ${vegetation.count} touffes`);
+      overlay.setLine("agents", `agents ${snapshot.agents.length}`);
       const watched = snapshot.agents[0];
       inspector.update(watched ? host.getAgentDetail(watched.id) : null);
     }
