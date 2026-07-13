@@ -1,0 +1,14 @@
+{
+  "name": "@eco/client",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@eco/shared": "workspace:*",
+    "@eco/sim": "workspace:*"
+  }
+}

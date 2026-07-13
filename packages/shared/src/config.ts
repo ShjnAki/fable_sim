@@ -1,0 +1,38 @@
+/** Configuration complète d'un monde. Tous les « paramètres à tuner » vivent ici. */
+export interface WorldConfig {
+  seed: string;
+  /** Côté du monde en mètres (monde centré sur l'origine). */
+  sizeMeters: number;
+  /** Résolution de la grille de hauteurs : (n+1)² sommets. */
+  terrainResolution: number;
+  /** Longueur d'onde de base du bruit (m) — plus grand = relief plus large. */
+  noiseWavelength: number;
+  /** Hauteur max du relief (m), avant falloff insulaire. */
+  maxHeight: number;
+  /** Niveau de l'eau (m). */
+  waterLevel: number;
+  /** Pente (dy par mètre horizontal) au-delà de laquelle c'est de la roche. */
+  rockSlope: number;
+  /** Résolution de la grille de biomasse/zones (cellules par côté). */
+  biomassResolution: number;
+  /** Taux de repousse logistique par seconde. */
+  biomassRegrowthRate: number;
+  /** Durée d'un jour complet en secondes de sim. */
+  dayLengthSeconds: number;
+  /** Fréquence de tick de la sim (Hz). */
+  tickRateHz: number;
+}
+
+export const DEFAULT_WORLD_CONFIG: WorldConfig = {
+  seed: "fable-1",
+  sizeMeters: 512,
+  terrainResolution: 256,
+  noiseWavelength: 180,
+  maxHeight: 36,
+  waterLevel: 5,
+  rockSlope: 0.7,
+  biomassResolution: 128,
+  biomassRegrowthRate: 0.08,
+  dayLengthSeconds: 600,
+  tickRateHz: 20,
+};
