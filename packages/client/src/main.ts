@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { DEFAULT_WORLD_CONFIG } from "@eco/shared";
 import { generateTerrain } from "@eco/sim";
+import { createCameraControls } from "./render/cameraControls";
 import { createScene } from "./render/scene";
 import { buildTerrainMesh } from "./render/terrainMesh";
 import { buildWaterMesh } from "./render/waterMesh";
@@ -24,6 +25,8 @@ sun.position.set(200, 300, 100);
 scene.add(sun);
 scene.add(new THREE.HemisphereLight(0xbfe3ff, 0x6a8f5a, 0.5));
 
+const cameraControls = createCameraControls(camera, renderer.domElement, config);
+
 let last = performance.now();
 let lastOverlayUpdate = 0;
 
@@ -31,6 +34,8 @@ renderer.setAnimationLoop((now) => {
   const frameMs = now - last;
   last = now;
   stats.addFrame(frameMs);
+
+  cameraControls.update(frameMs / 1000);
 
   if (now - lastOverlayUpdate > 500) {
     lastOverlayUpdate = now;
