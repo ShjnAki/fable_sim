@@ -8,8 +8,11 @@
 ## État actuel
 
 **Phase en cours :** Phase 2 — Un agent qui vit
-**Statut :** démarrage (plan à écrire puis exécution)
-**Dernier commit pertinent :** validation Phase 1
+**Statut :** terminée côté code (7 tâches du plan exécutées, 50 tests verts,
+typecheck OK, comportement attesté en headless : cycles Wander → SeekWater →
+Drink → SeekFood → Eat → Wander observés). **Validation visuelle par Shin en
+attente** dans son navigateur (`pnpm dev`).
+**Dernier commit pertinent :** rendu agent + inspecteur (Task 6)
 
 ---
 
@@ -23,6 +26,9 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
 - `biomassRegrowthRate` (0.08/s) — vitesse de verdissement visible.
 - `dayLengthSeconds` (600 s) — rythme du cycle jour/nuit.
 - Palette jour/nuit : keyframes dans `packages/client/src/render/dayNight.ts`.
+- `HERBIVORE` (`packages/shared/src/species.ts`) — tout le comportement agent :
+  décroissances faim/soif, seuils FSM (critique/déclenchement/hystérésis),
+  vitesses de steering, rayon de perception, débits manger/boire.
 
 ---
 
@@ -34,6 +40,13 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
   rafraîchissement (~1 Hz). Négligeable aujourd'hui (~8k instances) ; passer aux
   cellules sales si ça pèse un jour.
 - **Pas d'ombres portées** — choix perf assumé (architecture §9).
+- **Recherche d'eau = scan linéaire de toutes les cellules de rive** à
+  l'acquisition de cible (pas à chaque tick). OK à 1 agent ; à surveiller en
+  Phase 3 (grille spatiale prévue).
+- **Couleur du corps = état FSM** — choix debug assumé, à revoir quand
+  plusieurs espèces coexisteront (Phase 3/4).
+- **L'agent ignore les pentes** (pas d'évitement de roche) — il peut gravir de
+  la roche abrupte. Steering d'évitement en Phase 3+ si visuellement gênant.
 - Le tuning Lotka-Volterra (Phase 4) reste le risque majeur du projet —
   mitigation : harness headless accéléré (architecture §13).
 - Environnement WSL2 sans navigateur : les vérifications visuelles passent par le
@@ -82,7 +95,17 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
 - Reste : validation visuelle par Shin dans son navigateur.
 
 ### Phase 2 — Un agent qui vit
-- Statut : à venir
+- Statut : **code terminé le 2026-07-14, validation visuelle Shin en attente**
+  (plan exécuté en entier :
+  `docs/superpowers/plans/2026-07-13-phase-2-un-agent-qui-vit.md`)
+- Livré : un herbivore unique vivant — besoins énergie/hydratation, FSM à
+  priorités d'interruption (`decide()` pure), steering seek/arrive/wander
+  zéro-alloc, recherche d'eau (cellules de rive) et d'herbe (biomasse),
+  mémoire de ressources, mort de faim/soif + despawn du cadavre ; protocole
+  étendu (`agents[]`, `interpolationAlpha`, `getAgentDetail`) ; rendu
+  InstancedMesh (capacité 512) coloré par état, interpolé entre snapshots ;
+  inspecteur temps réel (barres, mémoire, ring buffer de transitions).
+  50 tests, typecheck strict OK.
 
 ### Phase 3 — Population & voisinage
 - Statut : à venir

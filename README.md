@@ -23,4 +23,5 @@ Contrôles : souris = orbite/zoom · ZQSD/WASD/flèches = déplacement.
 
 ## État
 
-Phase 1 (monde statique) terminée — suivi détaillé dans `PROGRESS.md`.
+Phase 2 (un herbivore vivant et inspectable) terminée côté code — suivi
+détaillé dans `PROGRESS.md`.
