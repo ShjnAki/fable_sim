@@ -34,6 +34,14 @@ describe("world", () => {
     expect(w.biomass.values[i]!).toBeGreaterThan(before);
   });
 
+  it("le snapshot contient les agents", () => {
+    const w = createWorld();
+    tickWorld(w);
+    const s = makeSnapshot(w, 0);
+    expect(s.agents.length).toBe(1);
+    expect(s.agents[0]).toMatchObject({ id: 1, state: expect.any(String) });
+  });
+
   it("makeSnapshot expose les champs du protocole", () => {
     const w = createWorld();
     tickWorld(w);

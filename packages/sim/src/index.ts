@@ -4,3 +4,4 @@ export * from "./world";
 export * from "./agent";
 export * from "./steering";
 export * from "./decide";
+export * from "./agentTick";
