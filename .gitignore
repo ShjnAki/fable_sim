@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+*.local
+
+# Artefact MCP local, pas un fichier du projet
+mydatabase.db
