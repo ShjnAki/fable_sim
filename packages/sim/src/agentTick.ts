@@ -1,7 +1,9 @@
 import { HERBIVORE, type AgentState, type HerbivoreParams, type Rng } from "@eco/shared";
-import type { Agent } from "./agent";
+import { createHerbivore, type Agent } from "./agent";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
-import { decide } from "./decide";
+import { accumulateBoids } from "./boids";
+import { decide, isMateEligible } from "./decide";
+import { forEachNeighbor } from "./spatialGrid";
 import { arrive, wander, type SteerOut } from "./steering";
 import { ZONE_GRASS, sampleHeight } from "./terrain";
 import type { World } from "./world";
@@ -58,6 +60,42 @@ function findNearestFood(world: World, a: Agent, p: HerbivoreParams): boolean {
   return true;
 }
 
+// Recherche du partenaire éligible le plus proche — état module, zéro alloc.
+let mateSeeker: Agent;
+let mateBest: Agent | null = null;
+let mateBestD2 = 0;
+function considerMate(n: Agent): void {
+  if (n.id === mateSeeker.id || !isMateEligible(n, HERBIVORE)) return;
+  const dx = n.x - mateSeeker.x, dz = n.z - mateSeeker.z;
+  const d2 = dx * dx + dz * dz;
+  if (d2 < mateBestD2) { mateBestD2 = d2; mateBest = n; }
+}
+function findNearestMate(world: World, a: Agent): Agent | null {
+  mateSeeker = a;
+  mateBest = null;
+  mateBestD2 = HERBIVORE.perceptionRadius ** 2;
+  forEachNeighbor(world.grid, a.x, a.z, HERBIVORE.perceptionRadius, considerMate);
+  return mateBest;
+}
+
+/** Naissance : le parent au plus petit id l'exécute — jamais deux fois. */
+function birth(world: World, a: Agent, mate: Agent): void {
+  const p = HERBIVORE;
+  const child = createHerbivore(
+    world.nextAgentId++,
+    (a.x + mate.x) / 2 + (world.rng() - 0.5) * 2,
+    (a.z + mate.z) / 2 + (world.rng() - 0.5) * 2,
+    world.rng,
+  );
+  world.agents.push(child);
+  a.energy = Math.max(0.05, a.energy - p.mateEnergyCost);
+  mate.energy = Math.max(0.05, mate.energy - p.mateEnergyCost);
+  a.nextMateAgeSeconds = a.ageSeconds + p.mateCooldownSeconds;
+  mate.nextMateAgeSeconds = mate.ageSeconds + p.mateCooldownSeconds;
+  applyTransition(a, "Wander", "naissance", world.tickCount);
+  if (mate.state === "SeekMate") applyTransition(mate, "Wander", "naissance", world.tickCount);
+}
+
 export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
   const p = HERBIVORE;
   if (a.state === "Dead") { a.deadForSeconds += dt; return; }
@@ -86,12 +124,15 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
 
   steer.ax = 0; steer.az = 0;
   let moving = true;
+  let boidsMode: 0 | 1 | 2 = 0; // 0 aucun, 1 séparation seule, 2 troupeau complet
 
   switch (a.state) {
     case "Wander":
       wander(a, rng, p.maxSpeed, p.maxForce, steer);
+      boidsMode = 2;
       break;
     case "SeekWater": {
+      boidsMode = 1;
       if (!a.hasTarget && !findNearestShore(world, a, p.perceptionRadius) && a.memory.hasWater) {
         a.targetX = a.memory.waterX; a.targetZ = a.memory.waterZ; a.hasTarget = true;
       }
@@ -109,6 +150,7 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       a.vx = a.vz = 0; moving = false;
       break;
     case "SeekFood": {
+      boidsMode = 1;
       if (!a.hasTarget && !findNearestFood(world, a, p) && a.memory.hasFood) {
         a.targetX = a.memory.foodX; a.targetZ = a.memory.foodZ; a.hasTarget = true;
       }
@@ -119,6 +161,24 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       } else {
         wander(a, rng, p.maxSpeed, p.maxForce, steer);
       }
+      break;
+    }
+    case "SeekMate": {
+      const mate = findNearestMate(world, a);
+      if (!mate) {
+        a.nextMateAgeSeconds = a.ageSeconds + p.mateRetrySeconds;
+        applyTransition(a, "Wander", "aucun partenaire", world.tickCount);
+        wander(a, rng, p.maxSpeed, p.maxForce, steer);
+        boidsMode = 2;
+        break;
+      }
+      arrive(a, mate.x, mate.z, 4, p.maxSpeed, p.maxForce, steer);
+      const dx = mate.x - a.x, dz = mate.z - a.z;
+      const d2 = dx * dx + dz * dz;
+      // À < 4 m du partenaire, la cour prime sur la séparation (écart spec
+      // assumé : sinon la séparation interdit le contact à < 2 m).
+      boidsMode = d2 > 16 ? 1 : 0;
+      if (d2 < 4 && a.id < mate.id) birth(world, a, mate);
       break;
     }
     case "Eat": {
@@ -134,6 +194,10 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       }
       break;
     }
+  }
+
+  if (moving && boidsMode > 0) {
+    accumulateBoids(a, world.grid, p, boidsMode === 2, steer);
   }
 
   if (moving) {

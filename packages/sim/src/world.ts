@@ -5,6 +5,7 @@ import {
 import { createHerbivore, findSpawnCells, type Agent } from "./agent";
 import { tickAgent } from "./agentTick";
 import { createBiomass, regrowBiomass, type BiomassField } from "./biomass";
+import { createSpatialGrid, rebuildGrid, type SpatialGrid } from "./spatialGrid";
 import { generateTerrain, type TerrainData } from "./terrain";
 
 export interface World {
@@ -12,6 +13,8 @@ export interface World {
   terrain: TerrainData;
   biomass: BiomassField;
   agents: Agent[];
+  /** Grille de voisinage, reconstruite à chaque tick (architecture §6). */
+  grid: SpatialGrid;
   /** RNG unique de la sim vivante — tout tirage passe par lui (déterminisme). */
   rng: Rng;
   nextAgentId: number;
@@ -37,6 +40,7 @@ export function createWorld(overrides: Partial<WorldConfig> = {}): World {
     terrain,
     biomass: createBiomass(terrain, config, createRng(config.seed + ":biomass")),
     agents,
+    grid: createSpatialGrid(config),
     rng,
     nextAgentId: config.initialHerbivores + 1,
     // On démarre en matinée (30 % du jour) pour que la première vue soit éclairée.
@@ -51,7 +55,11 @@ export function tickWorld(world: World): void {
   world.simTimeSeconds += dt;
   world.tickCount += 1;
   regrowBiomass(world.biomass, world.terrain, world.config, dt);
-  for (const a of world.agents) tickAgent(a, world, dt, world.rng);
+  rebuildGrid(world.grid, world.agents);
+  const aliveCount = world.agents.length; // les nouveau-nés du tick attendront le suivant
+  for (let i = 0; i < aliveCount; i++) {
+    tickAgent(world.agents[i]!, world, dt, world.rng);
+  }
   // Despawn des cadavres (rare : la boucle inverse + splice est acceptable ici).
   for (let i = world.agents.length - 1; i >= 0; i--) {
     const a = world.agents[i]!;

@@ -69,3 +69,51 @@ describe("un agent qui vit", () => {
     expect(w.agents.length).toBe(0);
   });
 });
+
+describe("reproduction", () => {
+  it("deux adultes repus proches → naissance, coût payé, cooldown", () => {
+    const w = createWorld({ initialHerbivores: 2 });
+    const a = w.agents[0]!, b = w.agents[1]!;
+    b.x = a.x + 1; b.z = a.z;
+    for (const ag of [a, b]) {
+      ag.energy = 0.9; ag.hydration = 0.9; ag.nextMateAgeSeconds = 0;
+    }
+    for (let t = 0; t < 100 && w.agents.length === 2; t++) tickWorld(w);
+    expect(w.agents.length).toBe(3);
+    expect(w.agents[2]!.ageSeconds).toBeLessThan(HERBIVORE.adultAgeSeconds); // juvénile
+    expect(a.energy).toBeLessThanOrEqual(0.9 - HERBIVORE.mateEnergyCost);
+    expect(b.energy).toBeLessThanOrEqual(0.9 - HERBIVORE.mateEnergyCost);
+    expect(a.nextMateAgeSeconds).toBeGreaterThan(a.ageSeconds);
+    expect(a.transitions.some((tr) => tr.cause === "naissance")).toBe(true);
+    // cooldown : pas de 2e naissance dans la foulée
+    for (let t = 0; t < 200; t++) tickWorld(w);
+    expect(w.agents.length).toBe(3);
+  });
+
+  it("sans partenaire à portée : retour Wander avec retry", () => {
+    const w = createWorld({ initialHerbivores: 1 });
+    const a = w.agents[0]!;
+    a.energy = 0.9; a.hydration = 0.9; a.nextMateAgeSeconds = 0;
+    tickWorld(w); // decide → SeekMate, comportement → échec → Wander
+    expect(a.state).toBe("Wander");
+    expect(a.transitions.some((tr) => tr.cause === "aucun partenaire")).toBe(true);
+    expect(a.nextMateAgeSeconds).toBeGreaterThan(a.ageSeconds);
+  });
+
+  it("la population croît depuis les fondateurs dans un monde riche", () => {
+    const w = createWorld();
+    let maxPop = w.agents.length;
+    for (let t = 0; t < 4000; t++) {
+      tickWorld(w);
+      maxPop = Math.max(maxPop, w.agents.length);
+    }
+    expect(maxPop).toBeGreaterThan(w.config.initialHerbivores);
+  });
+
+  it("déterminisme complet : même graine → mêmes agents après 1500 ticks", () => {
+    const w1 = createWorld(), w2 = createWorld();
+    for (let t = 0; t < 1500; t++) { tickWorld(w1); tickWorld(w2); }
+    expect(w1.agents.map((a) => [a.id, a.x, a.z, a.state]))
+      .toEqual(w2.agents.map((a) => [a.id, a.x, a.z, a.state]));
+  });
+});
