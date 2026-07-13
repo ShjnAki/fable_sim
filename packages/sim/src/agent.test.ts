@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_WORLD_CONFIG, createRng } from "@eco/shared";
-import { createHerbivore, findSpawnCell } from "./agent";
+import { createHerbivore, findSpawnCell, findSpawnCells } from "./agent";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
 import { ZONE_GRASS, generateTerrain } from "./terrain";
 
@@ -30,5 +30,29 @@ describe("agent", () => {
     const s = findSpawnCell(t, cfg);
     expect(t.zones[cellIndexAt(cfg, s.x, s.z)]).toBe(ZONE_GRASS);
     expect(Math.hypot(s.x, s.z)).toBeLessThan(cfg.sizeMeters / 4);
+  });
+});
+
+describe("findSpawnCells", () => {
+  it("retourne n cellules d'herbe distinctes proches du centre", () => {
+    const t = generateTerrain(cfg);
+    const cells = findSpawnCells(t, cfg, 30);
+    expect(cells.length).toBe(30);
+    const seen = new Set<number>();
+    for (const s of cells) {
+      const i = cellIndexAt(cfg, s.x, s.z);
+      expect(t.zones[i]).toBe(ZONE_GRASS);
+      expect(seen.has(i)).toBe(false);
+      seen.add(i);
+    }
+  });
+});
+
+describe("vieillesse", () => {
+  it("maxAgeSeconds est individuel et déterministe", () => {
+    const a = createHerbivore(1, 0, 0, createRng("v"));
+    const b = createHerbivore(1, 0, 0, createRng("v"));
+    expect(a.maxAgeSeconds).toBe(b.maxAgeSeconds);
+    expect(a.maxAgeSeconds).toBeGreaterThan(0);
   });
 });

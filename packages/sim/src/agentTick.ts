@@ -63,6 +63,11 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
   if (a.state === "Dead") { a.deadForSeconds += dt; return; }
 
   a.ageSeconds += dt;
+  if (a.ageSeconds >= a.maxAgeSeconds) {
+    a.vx = a.vz = 0;
+    applyTransition(a, "Dead", "vieillesse", world.tickCount);
+    return;
+  }
   a.energy -= p.energyDecayPerSec * dt;
   a.hydration -= p.hydrationDecayPerSec * dt;
   if (a.hydration <= 0) {

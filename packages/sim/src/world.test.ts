@@ -39,7 +39,7 @@ describe("world", () => {
     const w = createWorld();
     tickWorld(w);
     const s = makeSnapshot(w, 0);
-    expect(s.agents.length).toBe(1);
+    expect(s.agents.length).toBe(w.config.initialHerbivores);
     expect(s.agents[0]).toMatchObject({ id: 1, state: expect.any(String) });
   });
 
