@@ -31,8 +31,11 @@ export function createMainThreadHost(overrides: Partial<WorldConfig> = {}): SimH
     getBiomass: () => world.biomass.values,
     latestSnapshots: () => [prev, latest] as const,
     interpolationAlpha: () => accumulatorMs / tickIntervalMs,
-    // Stub : le monde n'a pas encore d'agents (branché en Task 5/6, Phase 2).
-    getAgentDetail: () => null,
+    getAgentDetail(id: number) {
+      // L'objet Agent vivant satisfait structurellement AgentDetail — en mode
+      // local l'inspecteur lit l'état réel sans copie (le mode distant copiera).
+      return world.agents.find((a) => a.id === id) ?? null;
+    },
     setSpeed(multiplier: number): void {
       speed = multiplier;
     },

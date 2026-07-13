@@ -1,4 +1,5 @@
 import { createMainThreadHost } from "./hosts/mainThreadHost";
+import { createAgentsMesh } from "./render/agentsMesh";
 import { createCameraControls } from "./render/cameraControls";
 import { createDayNight, formatTimeOfDay } from "./render/dayNight";
 import { createScene } from "./render/scene";
@@ -6,6 +7,7 @@ import { buildTerrainMesh } from "./render/terrainMesh";
 import { createVegetation } from "./render/vegetation";
 import { buildWaterMesh } from "./render/waterMesh";
 import { createFrameStats } from "./ui/frameStats";
+import { createInspector } from "./ui/inspector";
 import { createOverlay } from "./ui/overlay";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#app")!;
@@ -29,6 +31,8 @@ const dayNight = createDayNight(scene);
 const cameraControls = createCameraControls(camera, renderer.domElement, config);
 const vegetation = createVegetation(terrain, config, scene);
 vegetation.refresh(host.getBiomass());
+const agentsMesh = createAgentsMesh(scene, terrain, config);
+const inspector = createInspector(document.querySelector<HTMLDivElement>("#inspector")!);
 
 let last = performance.now();
 let lastOverlayUpdate = 0;
@@ -40,7 +44,7 @@ renderer.setAnimationLoop((now) => {
   stats.addFrame(frameMs);
 
   host.update(now);
-  const [, snapshot] = host.latestSnapshots();
+  const [prevSnap, snapshot] = host.latestSnapshots();
   if (snapshot) dayNight.update(snapshot.timeOfDay);
 
   // Rafraîchissement de la végétation à cadence lente (~toutes les 1.25 s de sim).
@@ -48,6 +52,8 @@ renderer.setAnimationLoop((now) => {
     lastVegTick = snapshot.tickCount;
     vegetation.refresh(host.getBiomass());
   }
+
+  agentsMesh.update(prevSnap?.agents ?? null, snapshot?.agents ?? null, host.interpolationAlpha());
 
   cameraControls.update(frameMs / 1000);
 
@@ -58,6 +64,8 @@ renderer.setAnimationLoop((now) => {
       overlay.setLine("tick", `tick ${snapshot.lastTickDurationMs.toFixed(2)} ms  (#${snapshot.tickCount})`);
       overlay.setLine("time", `heure ${formatTimeOfDay(snapshot.timeOfDay)}`);
       overlay.setLine("veg", `végétation ${vegetation.count} touffes`);
+      const watched = snapshot.agents[0];
+      inspector.update(watched ? host.getAgentDetail(watched.id) : null);
     }
   }
 
