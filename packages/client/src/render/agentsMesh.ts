@@ -7,7 +7,7 @@ import { createToonGradient } from "./materials";
 const STATE_COLORS: Record<string, number> = {
   Wander: 0xf5f5f5, SeekWater: 0x42a5f5, Drink: 0x26c6da,
   SeekFood: 0xffa726, Eat: 0xffee58, SeekMate: 0xf06292,
-  Flee: 0xba68c8, Hunt: 0xef5350, Scavenge: 0x8d6e63, Dead: 0x616161,
+  Flee: 0xba68c8, Hunt: 0xef5350, Scavenge: 0x8d6e63, Sleep: 0x5c6bc0, Dead: 0x616161,
 };
 
 const HERB_CAPACITY = 1024; // dimensionné pour le test de charge (?pop=600)
@@ -20,8 +20,11 @@ export function createAgentsMesh(scene: THREE.Scene, terrain: TerrainData, confi
   herbGeo.scale(0.9, 0.75, 1.2); // corps trapu, museau vers +Z (convention heading)
   const herbMesh = new THREE.InstancedMesh(herbGeo, mat, HERB_CAPACITY);
 
-  const carnGeo = new THREE.SphereGeometry(0.7, 7, 5);
-  carnGeo.scale(1.1, 0.95, 2.2); // plus grand, élancé — silhouette de chasseur
+  // Carnivore = cône (silhouette triangulaire anguleuse) — repère visuel
+  // temporaire, en attendant le design final. Pointe vers +Z (cap).
+  const carnGeo = new THREE.ConeGeometry(0.85, 2.6, 4);
+  carnGeo.rotateX(Math.PI / 2);   // axe du cône de +Y vers +Z (direction du cap)
+  carnGeo.translate(0, 0.25, 0);
   const carnMesh = new THREE.InstancedMesh(carnGeo, mat, CARN_CAPACITY);
 
   for (const mesh of [herbMesh, carnMesh]) {
