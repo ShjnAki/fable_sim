@@ -46,6 +46,36 @@
         background: #aed581; color: #1a2a12; border-color: #aed581; font-weight: bold;
       }
       #tools .sep { height: 1px; background: rgba(255,255,255,0.15); margin: 2px 0; }
+
+      /* --- Phase 6 : HUD de survie --- */
+      #hud {
+        position: fixed; left: 50%; bottom: 60px; transform: translateX(-50%);
+        display: none; flex-direction: column; gap: 3px; width: 300px;
+        font: 11px/1.4 monospace; color: #fff; text-shadow: 0 1px 2px #000a;
+        pointer-events: none;
+      }
+      #hud.on { display: flex; }
+      #hud .bar {
+        height: 9px; background: rgba(0, 0, 0, 0.45); border-radius: 5px;
+        overflow: hidden;
+      }
+      #hud .bar > i { display: block; height: 100%; width: 0; }
+      #hud .danger {
+        text-align: center; color: #ff6b5e; font-weight: bold; min-height: 15px;
+      }
+      #hud .hint { text-align: center; opacity: 0.75; }
+      #death {
+        position: fixed; inset: 0; display: none; place-items: center;
+        background: rgba(0, 0, 0, 0.72); color: #fff; z-index: 10;
+        font: 14px/1.7 monospace; text-align: center;
+      }
+      #death.on { display: grid; }
+      #death .title { font-size: 26px; margin-bottom: 8px; }
+      #death button {
+        margin-top: 16px; padding: 9px 20px; font: 13px/1 monospace; cursor: pointer;
+        background: #aed581; border: 0; border-radius: 6px; color: #1a2a12;
+        font-weight: bold;
+      }
     </style>
   </head>
   <body>
@@ -55,6 +85,8 @@
     <canvas id="popgraph" width="260" height="84"></canvas>
     <div id="timebar"></div>
     <div id="tools"></div>
+    <div id="hud"></div>
+    <div id="death"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

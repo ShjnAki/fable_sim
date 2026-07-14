@@ -1,8 +1,11 @@
 import * as THREE from "three";
+import { sampleHeight } from "@eco/sim";
 import { createMainThreadHost } from "./hosts/mainThreadHost";
+import { createPlayerInput } from "./input/playerInput";
 import { createAgentsMesh } from "./render/agentsMesh";
 import { createCameraControls } from "./render/cameraControls";
 import { createDayNight, formatTimeOfDay } from "./render/dayNight";
+import { createPlayerCamera } from "./render/playerCamera";
 import { createScene } from "./render/scene";
 import { createSelectionMarker } from "./render/selectionMarker";
 import { buildTerrainMesh } from "./render/terrainMesh";
@@ -10,6 +13,7 @@ import { createVegetation } from "./render/vegetation";
 import { buildWaterMesh } from "./render/waterMesh";
 import { createControls } from "./ui/controls";
 import { createFrameStats } from "./ui/frameStats";
+import { createHud } from "./ui/hud";
 import { createInspector } from "./ui/inspector";
 import { createOverlay } from "./ui/overlay";
 import { createPopulationGraph } from "./ui/populationGraph";
@@ -49,12 +53,51 @@ const popGraph = createPopulationGraph(document.querySelector<HTMLCanvasElement>
 const controls = createControls(host);
 const selectionMarker = createSelectionMarker(scene);
 
+// --- Phase 6 : incarnation ---
+const playerCam = createPlayerCamera(camera, renderer.domElement);
+const playerInput = createPlayerInput(renderer.domElement);
+const hud = createHud(
+  document.querySelector<HTMLDivElement>("#hud")!,
+  document.querySelector<HTMLDivElement>("#death")!,
+  () => host.spawnPlayer(),
+);
+
+// Deux modes : JEU (incarnation) et SPECTATEUR (la caméra libre et tous les
+// outils de la Phase 5, intacts). Tab bascule de l'un à l'autre.
+let playing = false;
+function setPlaying(on: boolean): void {
+  playing = on;
+  hud.setVisible(on);
+  playerCam.setEnabled(on);
+  playerInput.setEnabled(on);
+  cameraControls.setEnabled(!on);
+  // Lâcher les commandes ne supprime pas le corps : la FSM le reprend et il
+  // continue de vivre tout seul.
+  host.setPlayerControl(on);
+  if (on && host.latestSnapshots()[1]?.player == null) host.spawnPlayer();
+}
+window.addEventListener("keydown", (e) => {
+  if (e.code !== "Tab") return;
+  e.preventDefault(); // sinon le navigateur déplace le focus
+  setPlaying(!playing);
+});
+// ?play : entrer directement en jeu (le pointer lock, lui, attend un clic).
+if (urlParams.has("play")) setPlaying(true);
+
 // Inspection / perturbation au clic : rayon depuis la souris.
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 let selectedId: number | null = null;
 
 canvas.addEventListener("pointerdown", (e) => {
+  if (playing) {
+    // Le navigateur refuse le pointer lock sans geste utilisateur : si on est
+    // entré en jeu par ?play (ou après un Échap), on le redemande au clic.
+    if (document.pointerLockElement !== renderer.domElement) {
+      void renderer.domElement.requestPointerLock();
+    }
+    return; // en jeu, le clic gauche frappe (playerInput s'en charge)
+  }
   if (e.button !== 0) return;
   const rect = canvas.getBoundingClientRect();
   ndc.set(
@@ -115,7 +158,18 @@ renderer.setAnimationLoop((now) => {
     lastHerb = herb; lastCarn = carn; lastHuman = human;
   }
 
-  cameraControls.update(frameMs / 1000);
+  if (playing && snapshot?.player) {
+    // L'intention part à CHAQUE frame ; la sim consomme les impulsions (clic, E).
+    host.setPlayerIntent(playerInput.intent(playerCam.yaw()));
+    playerInput.clearImpulses();
+    const me = snapshot.agents.find((a) => a.id === snapshot.player!.id);
+    if (me) {
+      playerCam.update(me.x, sampleHeight(terrain, config, me.x, me.z), me.z, frameMs / 1000);
+    }
+    hud.update(snapshot.player);
+  } else {
+    cameraControls.update(frameMs / 1000);
+  }
 
   if (now - lastOverlayUpdate > 500) {
     lastOverlayUpdate = now;

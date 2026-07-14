@@ -36,6 +36,11 @@ export function createAgentsMesh(scene: THREE.Scene, terrain: TerrainData, confi
   for (const mesh of meshes) {
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.count = 0;
+    // Three.js fige la sphère englobante d'un InstancedMesh au premier calcul —
+    // or au premier frame les compteurs valent 0, et le mesh restait cullé à
+    // jamais (le joueur était invisible). Ces 3 meshes couvrent toute l'île :
+    // le culling au niveau du mesh ne rapporterait rien de toute façon.
+    mesh.frustumCulled = false;
     scene.add(mesh);
   }
   // instanceId → agentId, par mesh (pour le picking au clic).
