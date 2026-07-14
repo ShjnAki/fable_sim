@@ -140,3 +140,35 @@ describe("decideCarnivore", () => {
     expect(decideCarnivore(a, CARNIVORE)).toBeNull();
   });
 });
+
+describe("decideHerbivore — sommeil groupé", () => {
+  const night = () => {
+    const a = mk();
+    a.night = true; a.sheltered = true;
+    a.energy = 0.9; a.hydration = 0.9; a.state = "Wander";
+    return a;
+  };
+  it("dort la nuit, entouré et repu", () => {
+    expect(decideHerbivore(night(), HERBIVORE)?.state).toBe("Sleep");
+  });
+  it("seul la nuit : reste vigilant (pas de sommeil)", () => {
+    const a = night(); a.sheltered = false;
+    expect(decideHerbivore(a, HERBIVORE)).toBeNull();
+  });
+  it("le jour : ne dort pas", () => {
+    const a = night(); a.night = false;
+    expect(decideHerbivore(a, HERBIVORE)).toBeNull();
+  });
+  it("une menace réveille l'endormi", () => {
+    const a = night(); a.state = "Sleep"; a.hasThreat = true;
+    expect(decideHerbivore(a, HERBIVORE)?.state).toBe("Flee");
+  });
+  it("l'aube réveille l'endormi", () => {
+    const a = night(); a.state = "Sleep"; a.night = false;
+    expect(decideHerbivore(a, HERBIVORE)).toEqual({ state: "Wander", cause: "réveil" });
+  });
+  it("un besoin réveille l'endormi", () => {
+    const a = night(); a.state = "Sleep"; a.hydration = 0.3;
+    expect(decideHerbivore(a, HERBIVORE)?.state).toBe("SeekWater");
+  });
+});

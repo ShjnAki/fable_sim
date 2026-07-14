@@ -38,6 +38,14 @@ export function decideHerbivore(a: Agent, p: HerbivoreParams): Decision | null {
     if (!a.hasThreat) return { state: "Wander", cause: "danger écarté" };
     return null; // on fuit — rien d'autre ne compte
   }
+  // Réveil : fin de nuit ou groupe dispersé → Wander ; un besoin réveille aussi
+  // (les blocs besoins plus bas ne testent que Wander, on délègue explicitement).
+  if (a.state === "Sleep") {
+    if (!a.night || !a.sheltered) return { state: "Wander", cause: "réveil" };
+    if (a.hydration < p.seekWaterBelow) return { state: "SeekWater", cause: "soif" };
+    if (a.energy < p.seekFoodBelow) return { state: "SeekFood", cause: "faim" };
+    return null; // continue de dormir
+  }
   if (a.hydration < p.criticalNeed && a.state !== "SeekWater" && a.state !== "Drink") {
     return { state: "SeekWater", cause: "soif critique" };
   }
@@ -61,6 +69,8 @@ export function decideHerbivore(a: Agent, p: HerbivoreParams): Decision | null {
     if (a.hydration < p.seekWaterBelow) return { state: "SeekWater", cause: "soif" };
     if (a.energy < p.seekFoodBelow) return { state: "SeekFood", cause: "faim" };
     if (isMateEligible(a, p, a.rare)) return { state: "SeekMate", cause: "prêt à se reproduire" };
+    // Priorité la plus basse : dormir la nuit si entouré (sécurité du groupe).
+    if (a.night && a.sheltered) return { state: "Sleep", cause: "sommeil" };
   }
   return null;
 }
