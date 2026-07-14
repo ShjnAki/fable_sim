@@ -132,18 +132,34 @@ describe("chasse", () => {
     const seed = w.agents.find((a) => a.species === "herbivore")!;
     // Un troupeau dense et lent ; le loup chasse au milieu. Sur de nombreuses
     // morsures, au moins un échappement (p≈0.6/morsure) est quasi certain.
-    seed.energy = 0.15;
-    for (let k = 0; k < 14; k++) {
-      const ang = (k / 14) * Math.PI * 2;
-      const buddy = createHerbivore(200 + k, seed.x + Math.cos(ang) * 3, seed.z + Math.sin(ang) * 3, w.rng);
-      buddy.energy = 0.15;
+    const herd = [seed];
+    for (let k = 0; k < 30; k++) { // troupeau très dense → refuge au plafond
+      const ang = (k / 30) * Math.PI * 2;
+      const r = 2 + (k % 3);
+      const buddy = createHerbivore(
+        200 + k, seed.x + Math.cos(ang) * r, seed.z + Math.sin(ang) * r, w.rng,
+      );
       w.agents.push(buddy);
+      herd.push(buddy);
     }
+    const home = herd.map((h) => ({ x: h.x, z: h.z }));
     wolf.x = seed.x; wolf.z = seed.z;
-    wolf.energy = 0.5; wolf.hydration = 1;
-    wolf.nextHuntAgeSeconds = 0; wolf.nextMateAgeSeconds = 1e9;
+    wolf.hydration = 1;
+    wolf.nextMateAgeSeconds = 1e9;
     let sawEscape = false;
-    for (let t = 0; t < 500 && !sawEscape; t++) {
+    for (let t = 0; t < 1500 && !sawEscape; t++) {
+      // Troupeau maintenu serré et repu (sinon il se disperse pour brouter :
+      // on teste la confusion du prédateur, pas l'alimentation des proies).
+      for (let i = 0; i < herd.length; i++) {
+        const h = herd[i]!;
+        if (h.state === "Dead") continue;
+        h.x = home[i]!.x; h.z = home[i]!.z;
+        h.energy = 0.9; h.hydration = 0.9;
+      }
+      // Loup maintenu affamé et prêt à chasser : il enchaîne les attaques.
+      wolf.energy = 0.4;
+      wolf.nextHuntAgeSeconds = 0;
+      wolf.stamina = 1;
       tickWorld(w);
       if (wolf.transitions.some((tr) => tr.cause === "proie échappée")) sawEscape = true;
     }

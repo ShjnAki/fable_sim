@@ -6,9 +6,9 @@ import {
   createCarnivore, createHerbivore, findCarnivoreDens, findScatteredCells, paramsOf, type Agent,
 } from "./agent";
 import { tickAgent } from "./agentTick";
-import { createBiomass, regrowBiomass, type BiomassField } from "./biomass";
+import { cellIndexAt, createBiomass, regrowBiomass, type BiomassField } from "./biomass";
 import { createSpatialGrid, rebuildGrid, type SpatialGrid } from "./spatialGrid";
-import { generateTerrain, type TerrainData } from "./terrain";
+import { ZONE_GRASS, generateTerrain, type TerrainData } from "./terrain";
 
 export interface World {
   config: WorldConfig;
@@ -49,7 +49,15 @@ export function createWorld(overrides: Partial<WorldConfig> = {}): World {
   for (let c = 0; c < config.initialCarnivores; c++) {
     const clan = c % dens.length;
     const den = dens[clan]!;
-    const a = createCarnivore(nextId++, den.x + (rng() - 0.5) * 20, den.z + (rng() - 0.5) * 20, rng);
+    // Placement SUR TERRE près de la tanière : un décalage aveugle projetait
+    // les loups dans l'eau (tanières riveraines) — figés et morts de soif.
+    let sx = den.x, sz = den.z;
+    for (let attempt = 0; attempt < 24; attempt++) {
+      const cx = den.x + (rng() - 0.5) * 24;
+      const cz = den.z + (rng() - 0.5) * 24;
+      if (terrain.zones[cellIndexAt(config, cx, cz)] === ZONE_GRASS) { sx = cx; sz = cz; break; }
+    }
+    const a = createCarnivore(nextId++, sx, sz, rng);
     a.clanId = clan; a.denX = den.x; a.denZ = den.z;
     a.ageSeconds = CARNIVORE.adultAgeSeconds;
     a.nextMateAgeSeconds = a.ageSeconds + rng() * CARNIVORE.mateCooldownSeconds;

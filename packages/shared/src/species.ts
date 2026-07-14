@@ -74,19 +74,19 @@ export const HERBIVORE: HerbivoreParams = {
 
 export const CARNIVORE: CarnivoreParams = {
   maxSpeed: 3.5, maxForce: 7, perceptionRadius: 170,
-  energyDecayPerSec: 1 / 350, hydrationDecayPerSec: 1 / 120, drinkPerSec: 0.15,
+  energyDecayPerSec: 1 / 500, hydrationDecayPerSec: 1 / 150, drinkPerSec: 0.25,
   criticalNeed: 0.25, seekWaterBelow: 0.45, stopDrinkAt: 0.95,
-  adultAgeSeconds: 55, mateEnergyMin: 0.62, mateHydrationMin: 0.55,
+  adultAgeSeconds: 50, mateEnergyMin: 0.62, mateHydrationMin: 0.55,
   mateEnergyCost: 0.5, mateCooldownSeconds: 70, mateRetrySeconds: 12,
   maxAgeSeconds: 900, maxAgeVarianceSeconds: 150, corpseDespawnSeconds: 12,
   // territoryMax élevé : les clans (tanières + rappel) régulent déjà la densité
   // spatiale ; un cap serré ferait que les membres d'un même clan se
   // déclarent mutuellement « crowded » et ne se reproduiraient jamais.
-  huntBelow: 0.68, huntCommitRadius: 40, territoryRadius: 55, territoryMax: 12, sprintSpeed: 8,
+  huntBelow: 0.75, huntCommitRadius: 55, territoryRadius: 55, territoryMax: 12, sprintSpeed: 8,
   staminaDrainPerSec: 1 / 12, staminaRegenPerSec: 1 / 20,
   killEnergyGain: 0.72, killDistance: 1.5,
   scavengeRadius: 110, scavengeEnergyGain: 0.55,
-  preyRefugeRadius: 6, preyRefugePerNeighbor: 0.09, preyRefugeMaxChance: 0.6,
-  huntCooldownSeconds: 85, huntRetrySeconds: 8,
+  preyRefugeRadius: 6, preyRefugePerNeighbor: 0.05, preyRefugeMaxChance: 0.3,
+  huntCooldownSeconds: 40, huntRetrySeconds: 6,
   homeRange: 220, homingWeight: 0.45,
 };

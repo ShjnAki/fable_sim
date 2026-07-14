@@ -264,9 +264,17 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
         a.targetX = a.memory.waterX; a.targetZ = a.memory.waterZ; a.hasTarget = true;
       }
       if (a.hasTarget) {
-        arrive(a, a.targetX, a.targetZ, 6, p.maxSpeed, p.maxForce, steer);
+        // Rayon d'arrivée = la cellule de rive visée. Il DOIT être plus grand
+        // que le rayon de ralentissement d'arrive(), sinon l'agent freine
+        // jusqu'à l'arrêt juste avant sa cible et meurt de soif au bord de
+        // l'eau, immobile (bug observé : v=0 à 5,9 m de la rive).
+        const cell = world.config.sizeMeters / world.config.biomassResolution;
+        const reach = Math.max(3, cell);
+        arrive(a, a.targetX, a.targetZ, reach * 0.5, p.maxSpeed, p.maxForce, steer);
         const dx = a.targetX - a.x, dz = a.targetZ - a.z;
-        if (dx * dx + dz * dz < 4) applyTransition(a, "Drink", "arrivé à l'eau", world.tickCount);
+        if (dx * dx + dz * dz < reach * reach) {
+          applyTransition(a, "Drink", "arrivé à l'eau", world.tickCount);
+        }
       } else {
         wander(a, rng, p.maxSpeed, p.maxForce, steer); // explore : aucune eau connue
       }
@@ -327,6 +335,10 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
           a.targetX = corpse.x; a.targetZ = corpse.z; a.hasTarget = true;
           break;
         }
+        // Territoire vidé de son gibier : le clan lève le camp. La tanière
+        // dérive vers l'errance du chasseur — sinon le rappel le ramène
+        // indéfiniment dans un désert alimentaire et il meurt de faim.
+        a.denX = a.x; a.denZ = a.z;
         a.nextHuntAgeSeconds = a.ageSeconds + pc.huntRetrySeconds;
         applyTransition(a, "Wander", "aucune proie", world.tickCount);
         wander(a, rng, pc.maxSpeed, pc.maxForce, steer);
@@ -412,9 +424,18 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
     const sp = Math.hypot(a.vx, a.vz);
     if (sp > speedCap) { a.vx = (a.vx / sp) * speedCap; a.vz = (a.vz / sp) * speedCap; }
     const nx = a.x + a.vx * dt, nz = a.z + a.vz * dt;
-    // Jamais dans l'eau profonde : on boit depuis la rive.
-    if (sampleHeight(world.terrain, world.config, nx, nz) >= world.config.waterLevel - 0.2) {
+    // Jamais dans l'eau profonde : on boit depuis la rive. Si le pas direct
+    // plonge, on GLISSE le long du rivage (un axe à la fois) au lieu de bloquer
+    // net : sinon l'agent qui vise l'eau reste figé contre la berge et meurt de
+    // soif à quelques mètres du point d'eau.
+    const walkable = (x: number, z: number): boolean =>
+      sampleHeight(world.terrain, world.config, x, z) >= world.config.waterLevel - 0.2;
+    if (walkable(nx, nz)) {
       a.x = nx; a.z = nz;
+    } else if (walkable(nx, a.z)) {
+      a.x = nx; a.vz = 0;
+    } else if (walkable(a.x, nz)) {
+      a.z = nz; a.vx = 0;
     } else {
       a.vx = a.vz = 0;
     }
