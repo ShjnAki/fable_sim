@@ -7,6 +7,7 @@ import { applyTransition, damage, kill, preyEnergyValue } from "./agentCore";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
 import { accumulateBoids } from "./boids";
 import { decideCarnivore, decideHerbivore, decideHuman, isMateEligible } from "./decide";
+import { tickPlayer } from "./player";
 import { forEachNeighbor } from "./spatialGrid";
 import { arrive, seek, wander, type SteerOut } from "./steering";
 import { ZONE_GRASS, sampleHeight } from "./terrain";
@@ -260,6 +261,19 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
     a.health = Math.min(1, a.health + PLAYER.healthRegenPerSec * dt);
   }
 
+  steer.ax = 0; steer.az = 0;
+  let moving = true;
+  let boidsMode: 0 | 1 | 2 = 0; // 0 aucun, 1 séparation seule, 2 troupeau complet
+  let speedCap = p.maxSpeed;
+
+  if (a.controlled) {
+    // LE JOUEUR : ni perception, ni decide(), ni FSM — son intention pilote. Il
+    // rejoint le bloc de mouvement partagé, tout en bas, comme les autres.
+    const out = tickPlayer(a, world, dt, steer);
+    speedCap = out.speedCap;
+    moving = out.moving;
+  } else {
+
   // Perception (écrit sur l'agent) PUIS décision pure (architecture §7).
   // Rareté : espèce sous son seuil critique → refuge de reproduction.
   a.rare = a.species === "herbivore"
@@ -289,11 +303,6 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
     d = decideCarnivore(a, CARNIVORE);
   }
   if (d) applyTransition(a, d.state, d.cause, world.tickCount);
-
-  steer.ax = 0; steer.az = 0;
-  let moving = true;
-  let boidsMode: 0 | 1 | 2 = 0; // 0 aucun, 1 séparation seule, 2 troupeau complet
-  let speedCap = p.maxSpeed;
 
   switch (a.state) {
     case "Wander":
@@ -515,6 +524,8 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
   if (moving && boidsMode > 0 && a.species === "herbivore") {
     accumulateBoids(a, world.grid, HERBIVORE, boidsMode === 2, steer);
   }
+
+  } // fin de la branche « agent piloté par la FSM »
 
   if (moving) {
     a.vx += steer.ax * dt; a.vz += steer.az * dt;
