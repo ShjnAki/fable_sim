@@ -7,19 +7,20 @@
 
 ## État actuel
 
-**Phase en cours :** Phase 4 — Chaîne trophique
-**Statut :** mécaniques terminées (9 tâches du plan + 2 stabilisateurs
-supplémentaires, 87 tests verts, typecheck OK, perf 600 agents = 1,0 ms).
-Carnivores, prédation, chasse à l'endurance, fuite, charognage, territorialité,
-**refuge du troupeau** (confusion du prédateur, ajout demandé par Shin) — tous
-livrés et visibles à l'écran. Équilibre Lotka-Volterra : **coexistence
-métastable riche** (jusqu'à ~2 h sur la graine par défaut), mais la stabilité
-stricte ≥ 2 h reste seed-sensible — le système est proche d'une bifurcation
-avec bistabilité (voir `docs/tuning-phase4.md`, journal de ~30 itérations).
-**Validation visuelle par Shin en attente** + arbitrage : accepter la
-coexistence métastable démontrable, ou viser la stabilité stricte (nécessite un
-5ᵉ mécanisme : réponse fonctionnelle saturante / sites de repro prédateur).
-**Dernier commit pertinent :** refuge du troupeau
+**Phase en cours :** Phase 4 — Chaîne trophique (close côté mécaniques)
+**Statut :** chaîne trophique complète + rythme nocturne (115 tests verts,
+typecheck OK, perf 600 agents = 0,9 ms). Livré : carnivores (silhouette cône),
+prédation par poursuite à endurance en deux temps (approche au trot, sprint au
+contact + interception), fuite, charognage, territorialité, refuge du troupeau,
+refuge de rareté, clans à tanières migrantes, rivières franchissables + berges
+douces, **sommeil groupé nocturne** (proies vulnérables la nuit → chasse
+nocturne), grande réserve d'énergie carnivore, valeur nutritive de la proie
+selon l'âge. **Équilibre : plateau quasi-stationnaire ~35 min** (carnivores
+~25, herbivores ~160 — le meilleur résultat du projet) puis bascule lente ;
+Shin a choisi (2026-07-14) d'accepter cet équilibre émergent tel quel plutôt
+qu'un filet de recolonisation artificiel. Journal complet :
+`docs/tuning-phase4.md`. **Validation visuelle finale par Shin en attente.**
+**Dernier commit pertinent :** rythme nocturne + équilibre ~35 min
 
 ---
 
