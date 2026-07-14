@@ -32,6 +32,8 @@ export interface Agent {
   hasThreat: boolean;
   threatX: number;
   threatZ: number;
+  /** Territoire saturé de congénères — bloque la reproduction (carnivores). */
+  crowded: boolean;
   wanderAngle: number;
   hasTarget: boolean; targetX: number; targetZ: number;
   memory: {
@@ -54,7 +56,7 @@ function createAgent(
     maxAgeSeconds: p.maxAgeSeconds + (rng() * 2 - 1) * p.maxAgeVarianceSeconds,
     nextMateAgeSeconds: 0,
     stamina: 1, nextHuntAgeSeconds: 0,
-    hasThreat: false, threatX: 0, threatZ: 0,
+    hasThreat: false, threatX: 0, threatZ: 0, crowded: false,
     hasTarget: false, targetX: 0, targetZ: 0,
     memory: { hasWater: false, waterX: 0, waterZ: 0, hasFood: false, foodX: 0, foodZ: 0 },
     transitions: [],

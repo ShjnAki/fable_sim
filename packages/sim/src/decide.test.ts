@@ -127,6 +127,13 @@ describe("decideCarnivore", () => {
     a.ageSeconds = CARNIVORE.adultAgeSeconds; a.nextMateAgeSeconds = 0;
     expect(decideCarnivore(a, CARNIVORE)?.state).toBe("SeekMate");
   });
+  it("territoire saturé : pas de SeekMate (densité-dépendance)", () => {
+    const a = mkc();
+    a.state = "Wander"; a.energy = 0.9; a.hydration = 0.9;
+    a.ageSeconds = CARNIVORE.adultAgeSeconds; a.nextMateAgeSeconds = 0;
+    a.crowded = true;
+    expect(decideCarnivore(a, CARNIVORE)).toBeNull();
+  });
   it("Drink n'est pas interrompu par la faim ordinaire", () => {
     const a = mkc();
     a.state = "Drink"; a.energy = 0.5; a.hydration = 0.7;

@@ -78,7 +78,8 @@ export function decideCarnivore(a: Agent, p: CarnivoreParams): Decision | null {
   if (a.state === "Wander") {
     if (a.hydration < p.seekWaterBelow) return { state: "SeekWater", cause: "soif" };
     if (a.energy < p.huntBelow && canHunt) return { state: "Hunt", cause: "faim" };
-    if (isMateEligible(a, p)) return { state: "SeekMate", cause: "prêt à se reproduire" };
+    // Territorialité : pas de reproduction en territoire saturé (densité-dépendance).
+    if (isMateEligible(a, p) && !a.crowded) return { state: "SeekMate", cause: "prêt à se reproduire" };
   }
   return null;
 }

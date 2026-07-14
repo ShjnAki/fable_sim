@@ -62,3 +62,37 @@ Ajouter UN vrai stabilisateur densité-dépendant, deux candidats :
 Sans ce stabilisateur, aucun jeu de paramètres testé (18 itérations) ne tient
 2 h de façon robuste. Règle CLAUDE.md n°5 : je le signale explicitement plutôt
 que de laisser croire à un équilibre atteint.
+
+## Itération 19-20 : territorialité du prédateur (implémentée)
+
+Ajout d'une rétroaction densité-dépendante : un carnivore ne passe pas en
+`SeekMate` si plus de `territoryMax` congénères sont dans `territoryRadius`
+(champ `crowded` calculé avant `decide`, comme `hasThreat`). Cap la densité
+prédatrice indépendamment de l'abondance de proies.
+
+Résultat : le mécanisme **cape bien le sur-dépassement** (plus de boom à 50
+carnivores) et **allonge la coexistence** (collapse repoussé de ~1200 s à
+~3300-3900 s selon la graine), MAIS :
+- territoire serré (70 m / max 2) → carnivores trop clairsemés → ils
+  s'éteignent (bust non résolu) ;
+- territoire large (45 m / max 3) → herbivores finissent par s'éteindre.
+
+**Conclusion : la territorialité seule cape le boom mais ne plancherise pas le
+bust.** Un système robuste demande aussi un plancher sur le prédateur. Options
+de design (décision à prendre avec Shin) :
+
+1. **Charognage** — les carnivores mangent les cadavres (déjà présents via
+   `deadForSeconds`) quand la chasse échoue → source d'énergie de secours qui
+   planchérise leur population sans booster la prédation. Fondé, réutilise
+   l'existant.
+2. **Immigration rare** — un carnivore apparaît au bord toutes les N minutes
+   si la population passe sous un seuil (« recolonisation »). Simple, garantit
+   le non-extinction, mais moins « émergent ».
+3. **Proie-refuge par le troupeau** — kill probabiliste selon la densité
+   locale d'herbivores (confusion du prédateur), planchérise la proie.
+4. **Accepter la coexistence métastable ~1 h** comme livrable de démonstration
+   et documenter la dynamique comme « cycles amortis longs » plutôt que
+   « équilibre permanent ».
+
+Config verrouillée actuelle : territoryRadius 45, territoryMax 3 (coexistence
+la plus longue observée, ~1 h avant bascule selon la graine).

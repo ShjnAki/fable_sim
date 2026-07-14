@@ -41,6 +41,8 @@ export interface HerbivoreParams extends SpeciesParams {
 export interface CarnivoreParams extends SpeciesParams {
   huntBelow: number;             // seuil de faim qui déclenche la chasse
   huntCommitRadius: number;      // m — distance max d'engagement d'une proie (< perception)
+  territoryRadius: number;       // m — rayon de territoire (densité-dépendance)
+  territoryMax: number;          // pas de reproduction si + de N congénères dans le territoire
   sprintSpeed: number;           // m/s en Hunt — vide la stamina
   staminaDrainPerSec: number;
   staminaRegenPerSec: number;
@@ -70,7 +72,7 @@ export const CARNIVORE: CarnivoreParams = {
   adultAgeSeconds: 55, mateEnergyMin: 0.7, mateHydrationMin: 0.55,
   mateEnergyCost: 0.5, mateCooldownSeconds: 100, mateRetrySeconds: 12,
   maxAgeSeconds: 900, maxAgeVarianceSeconds: 150, corpseDespawnSeconds: 12,
-  huntBelow: 0.68, huntCommitRadius: 40, sprintSpeed: 8,
+  huntBelow: 0.68, huntCommitRadius: 40, territoryRadius: 45, territoryMax: 3, sprintSpeed: 8,
   staminaDrainPerSec: 1 / 12, staminaRegenPerSec: 1 / 20,
   killEnergyGain: 0.72, killDistance: 1.5,
   huntCooldownSeconds: 85, huntRetrySeconds: 8,

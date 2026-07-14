@@ -1,6 +1,6 @@
 import {
   CARNIVORE, HERBIVORE,
-  type AgentState, type HerbivoreParams, type Rng,
+  type AgentState, type CarnivoreParams, type HerbivoreParams, type Rng,
 } from "@eco/shared";
 import { createCarnivore, createHerbivore, paramsOf, type Agent } from "./agent";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
@@ -89,6 +89,19 @@ function findNearestMate(world: World, a: Agent): Agent | null {
   mateBestD2 = r * r;
   forEachNeighbor(world.grid, a.x, a.z, r, considerMate);
   return mateBest;
+}
+
+// Comptage de congénères dans le territoire (carnivores) — état module.
+let crowdSeeker: Agent;
+let crowdCount = 0;
+function countKin(n: Agent): void {
+  if (n.id !== crowdSeeker.id && n.species === crowdSeeker.species) crowdCount++;
+}
+/** true si trop de congénères dans territoryRadius — cap la densité prédatrice. */
+function isCrowded(world: World, a: Agent, p: CarnivoreParams): boolean {
+  crowdSeeker = a; crowdCount = 0;
+  forEachNeighbor(world.grid, a.x, a.z, p.territoryRadius, countKin);
+  return crowdCount > p.territoryMax;
 }
 
 // Recherche de proie (carnivores) — état module, zéro alloc.
@@ -184,6 +197,7 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
     if (a.state !== "Hunt") {
       a.stamina = Math.min(1, a.stamina + CARNIVORE.staminaRegenPerSec * dt);
     }
+    a.crowded = isCrowded(world, a, CARNIVORE);
     d = decideCarnivore(a, CARNIVORE);
   }
   if (d) applyTransition(a, d.state, d.cause, world.tickCount);
