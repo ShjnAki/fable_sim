@@ -81,7 +81,7 @@ export function makeSnapshot(world: World, lastTickDurationMs: number): TickSnap
     timeOfDay: timeOfDay(world),
     lastTickDurationMs,
     agents: world.agents.map((a) => ({
-      id: a.id, x: a.x, z: a.z, heading: a.heading,
+      id: a.id, species: a.species, x: a.x, z: a.z, heading: a.heading,
       state: a.state, energy: a.energy, hydration: a.hydration,
       adult: a.ageSeconds >= HERBIVORE.adultAgeSeconds,
     })),

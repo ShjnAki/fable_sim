@@ -23,6 +23,8 @@ export interface WorldConfig {
   tickRateHz: number;
   /** Nombre d'herbivores au démarrage du monde. */
   initialHerbivores: number;
+  /** Nombre de carnivores au démarrage du monde. */
+  initialCarnivores: number;
 }
 
 export const DEFAULT_WORLD_CONFIG: WorldConfig = {
@@ -38,4 +40,5 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   dayLengthSeconds: 600,
   tickRateHz: 20,
   initialHerbivores: 30,
+  initialCarnivores: 4,
 };

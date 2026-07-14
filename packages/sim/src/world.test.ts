@@ -43,6 +43,11 @@ describe("world", () => {
     expect(s.agents[0]).toMatchObject({ id: 1, state: expect.any(String) });
   });
 
+  it("le snapshot expose l'espèce", () => {
+    const w = createWorld();
+    expect(makeSnapshot(w, 0).agents[0]!.species).toBe("herbivore");
+  });
+
   it("le snapshot expose adult selon l'âge", () => {
     const w = createWorld();
     const a = w.agents[0]!;
