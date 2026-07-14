@@ -1,5 +1,5 @@
 import {
-  CARNIVORE, HERBIVORE, HUMAN,
+  CARNIVORE, HERBIVORE, HUMAN, PLAYER,
   type AgentState, type Rng, type SpeciesParams, type Transition, type WorldConfig,
 } from "@eco/shared";
 import { cellCenterX, cellCenterZ } from "./biomass";
@@ -26,6 +26,24 @@ export interface Agent {
   nextMateAgeSeconds: number;
   /** 0..1 — vidée par le sprint de chasse, rechargée hors Hunt (carnivores). */
   stamina: number;
+  /**
+   * Vitalité 0..1 (Phase 6). Portée par TOUS les agents, mais lue/écrite
+   * UNIQUEMENT dans le duel loup ↔ humain : la prédation des herbivores reste un
+   * tue-au-contact, l'équilibre tuné de la Phase 4 n'est pas touché.
+   */
+  health: number;
+  /** Âge à la dernière blessure — la cicatrisation attend healthRegenDelaySeconds. */
+  lastDamageAgeSeconds: number;
+  /** Loup : âge avant lequel il ne peut pas mordre à nouveau. */
+  nextBiteAgeSeconds: number;
+  /** Joueur : âge avant lequel il ne peut pas frapper à nouveau. */
+  nextStrikeAgeSeconds: number;
+  /** true : le joueur tient les commandes — sa FSM est court-circuitée. */
+  controlled: boolean;
+  /** Loup : assez de congénères autour pour OSER s'en prendre à un humain. */
+  daresHuman: boolean;
+  /** Cadavre : part de repas restante (1 = entier). Consommée par le JOUEUR seul. */
+  mealLeft: number;
   /** Âge avant lequel pas de chasse (digestion après kill, retry après abandon). */
   nextHuntAgeSeconds: number;
   /** Menace perçue — écrite par tickAgent AVANT decide (decide reste pure). */
@@ -65,6 +83,10 @@ function createAgent(
     maxAgeSeconds: p.maxAgeSeconds + (rng() * 2 - 1) * p.maxAgeVarianceSeconds,
     nextMateAgeSeconds: 0,
     stamina: 1, nextHuntAgeSeconds: 0,
+    // NB : aucun tirage rng ici → l'ordre des tirages reste figé (déterminisme).
+    health: 1, lastDamageAgeSeconds: -1e9,
+    nextBiteAgeSeconds: 0, nextStrikeAgeSeconds: 0,
+    controlled: false, daresHuman: false, mealLeft: 1,
     hasThreat: false, threatX: 0, threatZ: 0, crowded: false, rare: false,
     night: false, sheltered: false,
     clanId: 0, denX: 0, denZ: 0,
@@ -89,7 +111,9 @@ export function createHuman(id: number, x: number, z: number, rng: Rng): Agent {
 export function paramsOf(a: Agent): SpeciesParams {
   if (a.species === "herbivore") return HERBIVORE;
   if (a.species === "carnivore") return CARNIVORE;
-  return HUMAN;
+  // Le joueur est réglé pour le game feel ; lâché (Tab), son corps redevient un
+  // humain IA ordinaire.
+  return a.controlled ? PLAYER : HUMAN;
 }
 
 /**

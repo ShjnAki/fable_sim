@@ -1,6 +1,6 @@
 import {
   CARNIVORE, DEFAULT_WORLD_CONFIG, HERBIVORE, HUMAN, createRng,
-  type Rng, type TickSnapshot, type WorldConfig,
+  type PlayerIntent, type Rng, type TickSnapshot, type WorldConfig,
 } from "@eco/shared";
 import {
   createCarnivore, createHerbivore, createHuman,
@@ -23,6 +23,13 @@ export interface World {
   /** Effectifs vivants du tick, par espèce (recalculés à chaque tick). */
   herbivoreCount: number;
   carnivoreCount: number;
+  /** Effectif humain vivant (joueur compris). À 0, le coût du jeu est nul. */
+  humanCount: number;
+  /** Agent piloté par le joueur (null : personne n'est entré en jeu). */
+  playerId: number | null;
+  /** Intention du tick courant. La sim CONSOMME les impulsions strike/interact. */
+  playerIntent: PlayerIntent;
+  playerStats: { preyKilled: number; wolvesKilled: number; bornAtSeconds: number };
   /** true pendant la nuit (fenêtre nightStart..nightEnd), recalculé par tick. */
   isNight: boolean;
   /** RNG unique de la sim vivante — tout tirage passe par lui (déterminisme). */
@@ -86,6 +93,10 @@ export function createWorld(overrides: Partial<WorldConfig> = {}): World {
     deaths: {},
     herbivoreCount: config.initialHerbivores,
     carnivoreCount: config.initialCarnivores,
+    humanCount: config.initialHumans,
+    playerId: null,
+    playerIntent: { moveX: 0, moveZ: 0, sprint: false, strike: false, interact: false },
+    playerStats: { preyKilled: 0, wolvesKilled: 0, bornAtSeconds: 0 },
     isNight: false,
     rng,
     nextAgentId: config.initialHerbivores + config.initialCarnivores + config.initialHumans + 1,
@@ -137,14 +148,20 @@ export function tickWorld(world: World): void {
   // Effectifs vivants : servent au refuge démographique (une espèce devenue
   // rare se reproduit plus facilement — sans quoi le creux du cycle
   // proie/prédateur touche l'extinction, cf. docs/tuning-phase4.md).
-  let herb = 0, carn = 0;
+  // Les humains étaient comptés parmi les carnivores : inoffensif tant qu'il n'y
+  // en avait aucun, mais faux dès que le joueur existe (il gonflait l'effectif
+  // prédateur et désactivait leur refuge de rareté). Sans humain, `carn` est
+  // identique à avant → déterminisme et équilibre Phase 4 préservés.
+  let herb = 0, carn = 0, humans = 0;
   for (const a of world.agents) {
     if (a.state === "Dead") continue;
     if (a.species === "herbivore") herb++;
-    else carn++;
+    else if (a.species === "carnivore") carn++;
+    else humans++;
   }
   world.herbivoreCount = herb;
   world.carnivoreCount = carn;
+  world.humanCount = humans;
   // Nuit : conditionne le sommeil groupé des herbivores (chasse nocturne).
   const tod = timeOfDay(world);
   world.isNight = tod > world.config.nightStart || tod < world.config.nightEnd;
@@ -167,15 +184,40 @@ export function timeOfDay(world: World): number {
   return t - Math.floor(t);
 }
 
+/** Loups qui traquent le joueur en ce moment — la jauge de tension du HUD. */
+function countHunters(world: World, player: Agent): number {
+  let n = 0;
+  for (const a of world.agents) {
+    if (a.species !== "carnivore" || a.state !== "Hunt" || !a.daresHuman) continue;
+    const dx = a.x - player.x, dz = a.z - player.z;
+    if (dx * dx + dz * dz < CARNIVORE.huntCommitRadius ** 2) n++;
+  }
+  return n;
+}
+
 export function makeSnapshot(world: World, lastTickDurationMs: number): TickSnapshot {
+  const p = world.playerId === null
+    ? undefined
+    : world.agents.find((a) => a.id === world.playerId);
   return {
     tickCount: world.tickCount,
     simTimeSeconds: world.simTimeSeconds,
     timeOfDay: timeOfDay(world),
     lastTickDurationMs,
+    player: p
+      ? {
+        id: p.id,
+        alive: p.state !== "Dead",
+        energy: p.energy, hydration: p.hydration, health: p.health, stamina: p.stamina,
+        survivedSeconds: world.simTimeSeconds - world.playerStats.bornAtSeconds,
+        preyKilled: world.playerStats.preyKilled,
+        wolvesKilled: world.playerStats.wolvesKilled,
+        hunters: p.state === "Dead" ? 0 : countHunters(world, p),
+      }
+      : null,
     agents: world.agents.map((a) => ({
       id: a.id, species: a.species, x: a.x, z: a.z, heading: a.heading,
-      state: a.state, energy: a.energy, hydration: a.hydration,
+      state: a.state, energy: a.energy, hydration: a.hydration, health: a.health,
       adult: a.ageSeconds >= HERBIVORE.adultAgeSeconds,
     })),
   };

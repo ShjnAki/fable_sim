@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CARNIVORE, DEFAULT_WORLD_CONFIG, HERBIVORE, HUMAN, createRng } from "@eco/shared";
+import { CARNIVORE, DEFAULT_WORLD_CONFIG, HERBIVORE, HUMAN, PLAYER, createRng } from "@eco/shared";
 import {
   createCarnivore, createHerbivore, createHuman,
   findCarnivoreDens, findSpawnCell, findSpawnCells, paramsOf,
@@ -99,5 +99,22 @@ describe("humain", () => {
     const h = createHuman(1, 0, 0, createRng("h"));
     expect(h.species).toBe("human");
     expect(paramsOf(h)).toBe(HUMAN);
+  });
+});
+
+describe("Phase 6 — champs du joueur", () => {
+  it("un agent naît en pleine vitalité, non contrôlé, avec un repas entier", () => {
+    const a = createHuman(1, 0, 0, createRng("t"));
+    expect(a.health).toBe(1);
+    expect(a.controlled).toBe(false);
+    expect(a.daresHuman).toBe(false);
+    expect(a.mealLeft).toBe(1);
+  });
+
+  it("paramsOf renvoie PLAYER pour l'humain contrôlé, HUMAN sinon", () => {
+    const a = createHuman(1, 0, 0, createRng("t"));
+    expect(paramsOf(a)).toBe(HUMAN);
+    a.controlled = true;
+    expect(paramsOf(a)).toBe(PLAYER);
   });
 });

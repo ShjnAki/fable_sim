@@ -3,6 +3,7 @@ import {
   type AgentState, type CarnivoreParams, type HerbivoreParams, type Rng,
 } from "@eco/shared";
 import { createCarnivore, createHerbivore, paramsOf, type Agent } from "./agent";
+import { applyTransition, damage, kill, preyEnergyValue } from "./agentCore";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
 import { accumulateBoids } from "./boids";
 import { decideCarnivore, decideHerbivore, decideHuman, isMateEligible } from "./decide";
@@ -13,20 +14,9 @@ import type { World } from "./world";
 
 const steer: SteerOut = { ax: 0, az: 0 }; // scratch module — zéro alloc par tick
 
-/** Mort d'un agent : transition + compteur de cause (diagnostic de tuning). */
-function kill(world: World, a: Agent, cause: string): void {
-  a.vx = a.vz = 0;
-  const key = `${a.species}:${cause}`;
-  world.deaths[key] = (world.deaths[key] ?? 0) + 1;
-  applyTransition(a, "Dead", cause, world.tickCount);
-}
-
-export function applyTransition(a: Agent, to: AgentState, cause: string, tick: number): void {
-  a.transitions.push({ tick, from: a.state, to, cause });
-  if (a.transitions.length > 16) a.transitions.shift();
-  a.state = to;
-  a.hasTarget = false;
-}
+// Ré-export : `agentTick` reste la porte d'entrée publique de ces helpers
+// (des tests et `index.ts` les importent déjà d'ici).
+export { applyTransition, preyEnergyValue };
 
 /** Rive la plus proche dans le rayon de perception ; mémorise si trouvée. */
 function findNearestShore(world: World, a: Agent, maxDist: number): boolean {
@@ -172,16 +162,6 @@ function isSheltered(world: World, a: Agent): boolean {
   shelterSeeker = a; shelterCount = 0;
   forEachNeighbor(world.grid, a.x, a.z, HERBIVORE.sleepHerdRadius, countHerdShelter);
   return shelterCount >= HERBIVORE.sleepHerdMin;
-}
-
-/**
- * Valeur nutritive d'une proie/charogne selon l'âge : juvénile < adulte, mais
- * un juvénile reste correctement nourrissant (plancher 0.7). Sans ce plancher,
- * un boom de jeunes proies affame les prédateurs malgré l'abondance (effet
- * émergent déstabilisant observé au harness).
- */
-export function preyEnergyValue(prey: Agent): number {
-  return 0.7 + 0.3 * Math.min(1, prey.ageSeconds / paramsOf(prey).adultAgeSeconds);
 }
 
 // Perception de menace (herbivores) — état module, zéro alloc.
