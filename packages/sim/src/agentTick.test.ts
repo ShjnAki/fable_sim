@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { CARNIVORE, HERBIVORE } from "@eco/shared";
+import { CARNIVORE, DEFAULT_WORLD_CONFIG, HERBIVORE } from "@eco/shared";
 import { createCarnivore, createHerbivore } from "./agent";
 import { damage } from "./agentCore";
 import { preyEnergyValue } from "./agentTick";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
+import { sampleHeight } from "./terrain";
 import { createWorld, makeSnapshot, spawnAgentAt, tickWorld } from "./world";
 
 describe("un agent qui vit", () => {
@@ -543,5 +544,50 @@ describe("Phase 6 — NON-RÉGRESSION Phase 4", () => {
     for (let i = 0; i < 600; i++) tickWorld(w);
     expect(w.herbivoreCount).toBeGreaterThan(0);
     expect(w.humanCount).toBe(0);
+  });
+});
+
+describe("Phase 6 — nager (la vraie cause des extinctions)", () => {
+  it("un agent PEUT entrer dans l'eau (l'île n'est plus coupée en quatre)", () => {
+    const w = createWorld(EMPTY);
+    // Une cellule d'eau atteignable : on cherche un point sous le niveau de l'eau
+    // mais au-dessus du plancher de nage.
+    const cfg = w.config;
+    let wet: { x: number; z: number } | null = null;
+    for (let i = 0; i < w.terrain.zones.length && !wet; i++) {
+      const x = cellCenterX(cfg, i), z = cellCenterZ(cfg, i);
+      const h = sampleHeight(w.terrain, cfg, x, z);
+      if (h < cfg.waterLevel && h >= cfg.waterLevel - cfg.swimMaxDepth) wet = { x, z };
+    }
+    expect(wet).not.toBeNull();
+    // Le prédicat de déplacement doit l'accepter : c'est tout le correctif.
+    const h = sampleHeight(w.terrain, cfg, wet!.x, wet!.z);
+    expect(h).toBeGreaterThanOrEqual(cfg.waterLevel - cfg.swimMaxDepth);
+    expect(h).toBeLessThan(cfg.waterLevel);
+  });
+
+  it("le grand large reste infranchissable (les agents ne partent pas à la mer)", () => {
+    const w = createWorld(EMPTY);
+    const cfg = w.config;
+    // Un coin du monde : océan profond.
+    const corner = cfg.sizeMeters / 2 - 3;
+    const h = sampleHeight(w.terrain, cfg, corner, corner);
+    expect(h).toBeLessThan(cfg.waterLevel - cfg.swimMaxDepth);
+  });
+
+  it("le cerf nage mieux que le loup — c'est le refuge des proies", () => {
+    expect(HERBIVORE.swimSpeedFactor).toBeGreaterThan(CARNIVORE.swimSpeedFactor);
+  });
+
+  it("nager ralentit : dans l'eau, on avance moins vite que sur terre", () => {
+    const cfg = DEFAULT_WORLD_CONFIG;
+    // Vitesse effective d'un cerf en fuite : sur terre vs dans l'eau.
+    const onLand = HERBIVORE.maxSpeed * HERBIVORE.fleeBoost;
+    const inWater = onLand * HERBIVORE.swimSpeedFactor;
+    expect(inWater).toBeLessThan(onLand);
+    // …mais un loup y perd BIEN davantage : il passe sous la vitesse du cerf.
+    expect(CARNIVORE.sprintSpeed * CARNIVORE.swimSpeedFactor)
+      .toBeLessThan(HERBIVORE.maxSpeed * HERBIVORE.swimSpeedFactor * HERBIVORE.fleeBoost);
+    expect(cfg.swimMaxDepth).toBeGreaterThanOrEqual(cfg.riverDepth);
   });
 });
