@@ -1,6 +1,6 @@
 import {
-  CARNIVORE, HERBIVORE, HUMAN,
-  type AgentState, type CarnivoreParams, type HerbivoreParams, type Rng,
+  CARNIVORE, HERBIVORE, HUMAN, PLAYER,
+  type CarnivoreParams, type HerbivoreParams, type Rng,
 } from "@eco/shared";
 import { createCarnivore, createHerbivore, paramsOf, type Agent } from "./agent";
 import { applyTransition, damage, kill, preyEnergyValue } from "./agentCore";
@@ -94,15 +94,31 @@ function isCrowded(world: World, a: Agent, p: CarnivoreParams): boolean {
   return crowdCount > p.territoryMax;
 }
 
+// Comptage de la meute autour d'un loup (oser l'humain) — état module, zéro alloc.
+let packSeeker: Agent;
+let packCount = 0;
+function countPackMate(n: Agent): void {
+  if (n.id !== packSeeker.id && n.species === "carnivore" && n.state !== "Dead") packCount++;
+}
+function countPack(world: World, a: Agent, r: number): number {
+  packSeeker = a; packCount = 0;
+  forEachNeighbor(world.grid, a.x, a.z, r, countPackMate);
+  return packCount;
+}
+
 // Recherche de proie (carnivores) — état module, zéro alloc.
 let preySeeker: Agent;
 let preyBest: Agent | null = null;
 let preyBestD2 = 0;
 function considerPrey(n: Agent): void {
-  // L'humain chasse tout animal (herbivore ET carnivore) ; le carnivore, seulement
-  // les herbivores.
+  // L'humain chasse tout animal (herbivore ET carnivore). Le carnivore chasse les
+  // herbivores — et, depuis la Phase 6, l'humain, mais SEULEMENT s'il est en meute
+  // (`daresHuman`). La branche herbivore est inchangée : c'est ce qui garantit que
+  // l'équilibre tuné de la Phase 4 ne bouge pas.
   if (preySeeker.species === "human") {
     if (n.species === "human" || n.state === "Dead") return;
+  } else if (n.species === "human") {
+    if (!preySeeker.daresHuman || n.state === "Dead") return;
   } else if (n.species !== "herbivore") {
     return;
   }
@@ -238,6 +254,11 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
     kill(world, a, "mort de faim");
     return;
   }
+  // Cicatrisation (Phase 6) : jamais pendant le combat. `a.health < 1`
+  // court-circuite pour la quasi-totalité des agents → coût nul.
+  if (a.health < 1 && a.ageSeconds - a.lastDamageAgeSeconds > PLAYER.healthRegenDelaySeconds) {
+    a.health = Math.min(1, a.health + PLAYER.healthRegenPerSec * dt);
+  }
 
   // Perception (écrit sur l'agent) PUIS décision pure (architecture §7).
   // Rareté : espèce sous son seuil critique → refuge de reproduction.
@@ -258,6 +279,12 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
     if (a.state !== "Hunt") {
       a.stamina = Math.min(1, a.stamina + CARNIVORE.staminaRegenPerSec * dt);
     }
+    // Oser l'humain : il faut une meute autour de soi (la nuit, moins de monde
+    // suffit — ils sont plus hardis). COÛT NUL quand aucun humain n'existe : c'est
+    // le cas du harness, du test de charge et de tous les runs de tuning.
+    a.daresHuman = world.humanCount > 0
+      && countPack(world, a, CARNIVORE.humanHuntPackRadius)
+         >= (world.isNight ? CARNIVORE.humanHuntPackMinNight : CARNIVORE.humanHuntPackMin);
     a.crowded = isCrowded(world, a, CARNIVORE);
     d = decideCarnivore(a, CARNIVORE);
   }
@@ -409,8 +436,21 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       speedCap = chaseSpeed;
       const hdx = prey.x - a.x, hdz = prey.z - a.z;
       if (hdx * hdx + hdz * hdz < pc.killDistance * pc.killDistance) {
+        if (prey.species === "human") {
+          // DUEL LOUP ↔ HUMAIN (Phase 6) : morsure à points de vie, pas de mise à
+          // mort nette. Le loup reste en Hunt et remord après son cooldown. Le
+          // chemin herbivore ci-dessous est INCHANGÉ (équilibre Phase 4).
+          if (a.ageSeconds >= a.nextBiteAgeSeconds) {
+            a.nextBiteAgeSeconds = a.ageSeconds + CARNIVORE.biteCooldownSeconds;
+            damage(world, prey, CARNIVORE.biteDamage, "dévoré");
+            if (prey.state === "Dead") {
+              a.energy = Math.min(1, a.energy + pc.killEnergyGain * preyEnergyValue(prey));
+              a.nextHuntAgeSeconds = a.ageSeconds + pc.huntCooldownSeconds;
+              applyTransition(a, "Wander", "proie tuée", world.tickCount);
+            }
+          }
         // Refuge du troupeau : une proie entourée peut déjouer la morsure.
-        if (rng() < herdEscapeChance(world, prey, pc)) {
+        } else if (rng() < herdEscapeChance(world, prey, pc)) {
           a.nextHuntAgeSeconds = a.ageSeconds + pc.huntRetrySeconds;
           applyTransition(a, "Wander", "proie échappée", world.tickCount);
           wander(a, rng, pc.maxSpeed, pc.maxForce, steer);

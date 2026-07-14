@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { CARNIVORE, HERBIVORE } from "@eco/shared";
 import { createCarnivore, createHerbivore } from "./agent";
+import { damage } from "./agentCore";
 import { preyEnergyValue } from "./agentTick";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
-import { createWorld, spawnAgentAt, tickWorld } from "./world";
+import { createWorld, makeSnapshot, spawnAgentAt, tickWorld } from "./world";
 
 describe("un agent qui vit", () => {
   it("le monde spawne initialHerbivores adultes sur l'herbe", () => {
@@ -458,5 +459,89 @@ describe("humain — apex non-reproducteur", () => {
     for (let t = 0; t < 800; t++) { tickWorld(w1); tickWorld(w2); }
     expect(w1.agents.map((a) => [a.id, a.species, a.x, a.z, a.state]))
       .toEqual(w2.agents.map((a) => [a.id, a.species, a.x, a.z, a.state]));
+  });
+});
+
+const EMPTY = { initialHerbivores: 0, initialCarnivores: 0, initialHumans: 0 };
+
+describe("Phase 6 — les loups osent l'humain", () => {
+  it("un loup SEUL ne prend jamais l'humain pour cible", () => {
+    const w = createWorld(EMPTY);
+    const wolf = spawnAgentAt(w, "carnivore", 0, 0);
+    const man = spawnAgentAt(w, "human", 5, 0);
+    wolf.energy = 0.5; // affamé : il chasse
+    for (let i = 0; i < 40; i++) tickWorld(w);
+    expect(wolf.daresHuman).toBe(false);
+    expect(man.state).not.toBe("Dead");
+    expect(man.health).toBe(1);
+  });
+
+  it("trois loups groupés le chassent et le mordent (vitalité, pas mort nette)", () => {
+    const w = createWorld(EMPTY);
+    const wolves = [
+      spawnAgentAt(w, "carnivore", 0, 0),
+      spawnAgentAt(w, "carnivore", 2, 0),
+      spawnAgentAt(w, "carnivore", 0, 2),
+    ];
+    for (const wo of wolves) wo.energy = 0.5;
+    const man = spawnAgentAt(w, "human", 6, 6);
+    // Rassasié et désaltéré : il n'ira pas chasser de lui-même. Sans ça, l'humain
+    // IA (prédateur apex de la Phase 5) massacre la meute avant qu'elle ne morde —
+    // c'est précisément pourquoi le JOUEUR, lui, se bat à points de vie.
+    man.energy = 1; man.hydration = 1;
+    tickWorld(w);
+    expect(wolves[0]!.daresHuman).toBe(true);
+    for (let i = 0; i < 200 && man.health === 1; i++) tickWorld(w);
+    expect(man.health).toBeLessThan(1); // il a été mordu
+    expect(man.health).toBeGreaterThan(0); // mais pas tué net
+  });
+
+  it("trois morsures tuent (cause « dévoré »)", () => {
+    const w = createWorld(EMPTY);
+    const man = spawnAgentAt(w, "human", 1, 0);
+    damage(w, man, CARNIVORE.biteDamage, "dévoré");
+    damage(w, man, CARNIVORE.biteDamage, "dévoré");
+    expect(man.state).not.toBe("Dead");
+    damage(w, man, CARNIVORE.biteDamage, "dévoré");
+    expect(man.state).toBe("Dead");
+    expect(w.deaths["human:dévoré"]).toBe(1);
+  });
+
+  it("la cicatrisation attend le délai, puis remonte la vitalité", () => {
+    const w = createWorld(EMPTY);
+    const man = spawnAgentAt(w, "human", 1, 0);
+    damage(w, man, 0.5, "dévoré");
+    const hurt = man.health;
+    for (let i = 0; i < 40; i++) tickWorld(w); // 2 s < healthRegenDelaySeconds (8 s)
+    expect(man.health).toBe(hurt); // toujours blessé : pas de soin en plein combat
+    for (let i = 0; i < 300; i++) tickWorld(w); // +15 s
+    expect(man.health).toBeGreaterThan(hurt);
+  });
+});
+
+describe("Phase 6 — NON-RÉGRESSION Phase 4", () => {
+  it("loup → herbivore : mise à mort INSTANTANÉE, la vitalité n'entre pas en jeu", () => {
+    const w = createWorld(EMPTY);
+    const wolf = spawnAgentAt(w, "carnivore", 0, 0);
+    const deer = spawnAgentAt(w, "herbivore", 1, 0);
+    wolf.energy = 0.5;
+    for (let i = 0; i < 40 && deer.state !== "Dead"; i++) tickWorld(w);
+    expect(deer.state).toBe("Dead");
+    expect(deer.health).toBe(1); // mort SANS perdre un seul point de vie
+    expect(w.deaths["herbivore:prédation"]).toBe(1);
+  });
+
+  it("sans joueur ni humain, la partie est IDENTIQUE à graine égale", () => {
+    const run = (): string[] => {
+      const w = createWorld({ seed: "regression-p6" });
+      for (let i = 0; i < 600; i++) tickWorld(w);
+      return makeSnapshot(w, 0).agents
+        .map((a) => `${a.id}:${a.x.toFixed(6)}:${a.z.toFixed(6)}:${a.state}`);
+    };
+    expect(run()).toEqual(run());
+    const w = createWorld({ seed: "regression-p6" });
+    for (let i = 0; i < 600; i++) tickWorld(w);
+    expect(w.herbivoreCount).toBeGreaterThan(0);
+    expect(w.humanCount).toBe(0);
   });
 });
