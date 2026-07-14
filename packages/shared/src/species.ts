@@ -71,11 +71,11 @@ export const HERBIVORE: HerbivoreParams = {
 };
 
 export const CARNIVORE: CarnivoreParams = {
-  maxSpeed: 3.5, maxForce: 7, perceptionRadius: 90,
+  maxSpeed: 3.5, maxForce: 7, perceptionRadius: 170,
   energyDecayPerSec: 1 / 350, hydrationDecayPerSec: 1 / 120, drinkPerSec: 0.15,
   criticalNeed: 0.25, seekWaterBelow: 0.45, stopDrinkAt: 0.95,
   adultAgeSeconds: 55, mateEnergyMin: 0.62, mateHydrationMin: 0.55,
-  mateEnergyCost: 0.5, mateCooldownSeconds: 100, mateRetrySeconds: 12,
+  mateEnergyCost: 0.5, mateCooldownSeconds: 70, mateRetrySeconds: 12,
   maxAgeSeconds: 900, maxAgeVarianceSeconds: 150, corpseDespawnSeconds: 12,
   huntBelow: 0.68, huntCommitRadius: 40, territoryRadius: 55, territoryMax: 2, sprintSpeed: 8,
   staminaDrainPerSec: 1 / 12, staminaRegenPerSec: 1 / 20,
