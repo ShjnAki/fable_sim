@@ -40,6 +40,8 @@ export interface WorldConfig {
   initialHerbivores: number;
   /** Nombre de carnivores au démarrage du monde. */
   initialCarnivores: number;
+  /** Nombre d'humains au démarrage (0 : ils n'apparaissent qu'au spawn manuel). */
+  initialHumans: number;
   /** Nombre de clans de carnivores (tanières réparties sur l'île). */
   carnivoreClans: number;
 }
@@ -68,5 +70,6 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   tickRateHz: 20,
   initialHerbivores: 150,
   initialCarnivores: 8,
+  initialHumans: 0,
   carnivoreClans: 3,
 };

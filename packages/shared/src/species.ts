@@ -67,6 +67,9 @@ export interface CarnivoreParams extends SpeciesParams {
   homingWeight: number;          // force du rappel vers la tanière (0..1 de maxSpeed)
 }
 
+/** L'humain chasse avec la même machinerie que le carnivore (mêmes champs). */
+export type HumanParams = CarnivoreParams;
+
 export const HERBIVORE: HerbivoreParams = {
   maxSpeed: 4, maxForce: 6, perceptionRadius: 60,
   energyDecayPerSec: 1 / 150, hydrationDecayPerSec: 1 / 130, drinkPerSec: 0.35,
@@ -119,4 +122,29 @@ export const CARNIVORE: CarnivoreParams = {
   preyRefugeRadius: 6, preyRefugePerNeighbor: 0.02, preyRefugeMaxChance: 0.12,
   huntCooldownSeconds: 40, huntRetrySeconds: 6,
   homeRange: 400, homingWeight: 0.35,
+};
+
+/**
+ * Humain : super-prédateur au sommet (chasse les deux espèces, n'est chassé par
+ * personne). Non-reproducteur pour l'instant (les valeurs mate/territoire sont
+ * présentes mais inutilisées : decideHuman ne propose jamais SeekMate). Outil de
+ * perturbation contrôlé par le joueur (spawn manuel). Omnivore + reproduction :
+ * plus tard (hors périmètre Phase 5).
+ */
+export const HUMAN: HumanParams = {
+  maxSpeed: 5, maxForce: 8, perceptionRadius: 200,
+  energyDecayPerSec: 1 / 900, hydrationDecayPerSec: 1 / 500, drinkPerSec: 0.4,
+  criticalNeed: 0.25, seekWaterBelow: 0.45, stopDrinkAt: 0.95,
+  adultAgeSeconds: 80, mateEnergyMin: 2, mateHydrationMin: 2, // > 1 : jamais éligible
+  mateEnergyCost: 0.5, mateCooldownSeconds: 1e9, mateRetrySeconds: 1e9,
+  maxAgeSeconds: 1600, maxAgeVarianceSeconds: 300, corpseDespawnSeconds: 20,
+  rarityThreshold: 0, // pas de refuge de rareté
+  huntBelow: 0.85, huntCommitRadius: 70, sprintRange: 50,
+  territoryRadius: 1, territoryMax: 1e9, sprintSpeed: 14,
+  staminaDrainPerSec: 1 / 30, staminaRegenPerSec: 1 / 12,
+  killEnergyGain: 1, killDistance: 2.5,
+  scavengeRadius: 180, scavengeEnergyGain: 0.7,
+  preyRefugeRadius: 6, preyRefugePerNeighbor: 0, preyRefugeMaxChance: 0, // insensible au troupeau
+  huntCooldownSeconds: 30, huntRetrySeconds: 5,
+  homeRange: 1e9, homingWeight: 0, // pas de tanière
 };

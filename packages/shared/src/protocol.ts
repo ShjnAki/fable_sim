@@ -16,7 +16,7 @@ export interface Transition {
 /** Vue légère d'un agent, émise à chaque tick pour le rendu. */
 export interface AgentSnapshot {
   id: number;
-  species: "herbivore" | "carnivore";
+  species: "herbivore" | "carnivore" | "human";
   x: number;
   z: number;
   heading: number;
@@ -63,4 +63,8 @@ export interface SimHost {
   interpolationAlpha(): number;
   getAgentDetail(id: number): AgentDetail | null;
   setSpeed(multiplier: number): void;
+  getSpeed(): number;
+  /** Perturbations (Phase 5) : ajoute un agent au clic ; module la biomasse. */
+  spawnAgent(species: "herbivore" | "carnivore" | "human", x: number, z: number): void;
+  applyEnvironment(kind: "drought" | "abundance"): void;
 }
