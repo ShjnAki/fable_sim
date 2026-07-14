@@ -3,22 +3,32 @@ import type { AgentSnapshot, WorldConfig } from "@eco/shared";
 import { sampleHeight, type TerrainData } from "@eco/sim";
 import { createToonGradient } from "./materials";
 
-/** Couleur du corps = état FSM (debug assumé — revu quand plusieurs espèces). */
+/** Couleur du corps = état FSM ; l'ESPÈCE se lit à la silhouette (spec P4). */
 const STATE_COLORS: Record<string, number> = {
   Wander: 0xf5f5f5, SeekWater: 0x42a5f5, Drink: 0x26c6da,
-  SeekFood: 0xffa726, Eat: 0xffee58, SeekMate: 0xf06292, Dead: 0x616161,
+  SeekFood: 0xffa726, Eat: 0xffee58, SeekMate: 0xf06292,
+  Flee: 0xba68c8, Hunt: 0xef5350, Dead: 0x616161,
 };
 
-const CAPACITY = 1024; // dimensionné pour le test de charge (?pop=600)
+const HERB_CAPACITY = 1024; // dimensionné pour le test de charge (?pop=600)
+const CARN_CAPACITY = 256;
 
 export function createAgentsMesh(scene: THREE.Scene, terrain: TerrainData, config: WorldConfig) {
-  const geo = new THREE.SphereGeometry(0.7, 7, 5);
-  geo.scale(0.9, 0.75, 1.2); // corps trapu, museau vers +Z (convention heading)
   const mat = new THREE.MeshToonMaterial({ gradientMap: createToonGradient() });
-  const mesh = new THREE.InstancedMesh(geo, mat, CAPACITY);
-  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  mesh.count = 0;
-  scene.add(mesh);
+
+  const herbGeo = new THREE.SphereGeometry(0.7, 7, 5);
+  herbGeo.scale(0.9, 0.75, 1.2); // corps trapu, museau vers +Z (convention heading)
+  const herbMesh = new THREE.InstancedMesh(herbGeo, mat, HERB_CAPACITY);
+
+  const carnGeo = new THREE.SphereGeometry(0.7, 7, 5);
+  carnGeo.scale(1.1, 0.95, 2.2); // plus grand, élancé — silhouette de chasseur
+  const carnMesh = new THREE.InstancedMesh(carnGeo, mat, CARN_CAPACITY);
+
+  for (const mesh of [herbMesh, carnMesh]) {
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.count = 0;
+    scene.add(mesh);
+  }
 
   const m = new THREE.Matrix4();
   const pos = new THREE.Vector3();
@@ -34,9 +44,13 @@ export function createAgentsMesh(scene: THREE.Scene, terrain: TerrainData, confi
       prevById.clear();
       if (prev) for (const a of prev) prevById.set(a.id, a);
       const list = latest ?? [];
-      const n = Math.min(list.length, CAPACITY);
-      for (let k = 0; k < n; k++) {
+      let nh = 0, nc = 0;
+      for (let k = 0; k < list.length; k++) {
         const a = list[k]!;
+        const isHerb = a.species === "herbivore";
+        const mesh = isHerb ? herbMesh : carnMesh;
+        const idx = isHerb ? nh : nc;
+        if (idx >= (isHerb ? HERB_CAPACITY : CARN_CAPACITY)) continue;
         const b = prevById.get(a.id);
         const x = b ? b.x + (a.x - b.x) * alpha : a.x;
         const z = b ? b.z + (a.z - b.z) * alpha : a.z;
@@ -52,12 +66,16 @@ export function createAgentsMesh(scene: THREE.Scene, terrain: TerrainData, confi
         const s = a.adult ? 1 : 0.6; // les juvéniles sont visiblement petits
         scale.set(s, s, s);
         m.compose(pos, quat, scale);
-        mesh.setMatrixAt(k, m);
-        mesh.setColorAt(k, color.setHex(STATE_COLORS[a.state] ?? 0xffffff));
+        mesh.setMatrixAt(idx, m);
+        mesh.setColorAt(idx, color.setHex(STATE_COLORS[a.state] ?? 0xffffff));
+        if (isHerb) nh++; else nc++;
       }
-      mesh.count = n;
-      mesh.instanceMatrix.needsUpdate = true;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      herbMesh.count = nh;
+      carnMesh.count = nc;
+      for (const mesh of [herbMesh, carnMesh]) {
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      }
     },
   };
 }

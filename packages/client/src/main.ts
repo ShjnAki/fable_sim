@@ -46,6 +46,8 @@ const popGraph = createPopulationGraph(document.querySelector<HTMLCanvasElement>
 let last = performance.now();
 let lastOverlayUpdate = 0;
 let lastVegTick = 0;
+let lastHerb = 0;
+let lastCarn = 0;
 
 renderer.setAnimationLoop((now) => {
   const frameMs = now - last;
@@ -63,7 +65,15 @@ renderer.setAnimationLoop((now) => {
   }
 
   agentsMesh.update(prevSnap?.agents ?? null, snapshot?.agents ?? null, host.interpolationAlpha());
-  if (snapshot) popGraph.update(snapshot.simTimeSeconds, snapshot.agents.length);
+  if (snapshot) {
+    let herb = 0, carn = 0;
+    for (const a of snapshot.agents) {
+      if (a.species === "herbivore") herb++;
+      else carn++;
+    }
+    popGraph.update(snapshot.simTimeSeconds, herb, carn);
+    lastHerb = herb; lastCarn = carn;
+  }
 
   cameraControls.update(frameMs / 1000);
 
@@ -74,8 +84,8 @@ renderer.setAnimationLoop((now) => {
       overlay.setLine("tick", `tick ${snapshot.lastTickDurationMs.toFixed(2)} ms  (#${snapshot.tickCount})`);
       overlay.setLine("time", `heure ${formatTimeOfDay(snapshot.timeOfDay)}`);
       overlay.setLine("veg", `végétation ${vegetation.count} touffes`);
-      overlay.setLine("agents", `agents ${snapshot.agents.length}`);
-      const watched = snapshot.agents[0];
+      overlay.setLine("agents", `herbivores ${lastHerb} · carnivores ${lastCarn}`);
+      const watched = snapshot.agents.find((a) => a.species === "herbivore");
       inspector.update(watched ? host.getAgentDetail(watched.id) : null);
     }
   }
