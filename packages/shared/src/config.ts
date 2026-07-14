@@ -11,6 +11,15 @@ export interface WorldConfig {
   maxHeight: number;
   /** Niveau de l'eau (m). */
   waterLevel: number;
+  /**
+   * Profondeur d'eau maximale franchissable à la nage (m sous `waterLevel`).
+   * LE PARAMÈTRE LE PLUS STRUCTURANT DE LA CARTE : les rivières font `riverDepth`
+   * de fond, donc en dessous de cette valeur l'île reste coupée en quatre
+   * quartiers isolés — et chaque quartier s'éteint séparément (diagnostic :
+   * `scripts/connectivity.ts`). Au-delà de ~5 m, l'océan s'ouvre et les agents
+   * partent au large.
+   */
+  swimMaxDepth: number;
   /** Demi-largeur des rivières (m). 0 = pas de rivières. */
   riverWidth: number;
   /** Profondeur des chenaux sous le niveau de l'eau (m). */
@@ -53,6 +62,10 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   noiseWavelength: 180,
   maxHeight: 36,
   waterLevel: 5,
+  // 4,5 m : juste au-dessus des 4 m de fond des rivières (l'île se recolle d'un
+  // seul tenant) et juste en dessous des 5 m qui ouvriraient le grand large.
+  // La fenêtre est étroite — voir `scripts/swimdepth.ts`.
+  swimMaxDepth: 4.5,
   riverWidth: 11,
   riverDepth: 4,
   riverMeander: 26,

@@ -528,16 +528,30 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
   } // fin de la branche « agent piloté par la FSM »
 
   if (moving) {
+    const cfg = world.config;
+    // NAGER. Sans ça, les rivières (4 m de fond) coupent l'île en quatre quartiers
+    // hermétiques : chacun porte une sous-population qui s'éteint sans espoir de
+    // recolonisation — c'était la vraie cause des extinctions de la Phase 4, et
+    // aucun réglage ne pouvait la corriger (diagnostic : `scripts/connectivity.ts`).
+    // On nage donc, mais lentement : la rivière n'est plus un mur, elle est un
+    // passage lent — et donc risqué quand une meute est derrière soi.
+    // Le facteur est PROPRE À L'ESPÈCE : le cerf nage bien (0,62), le loup mal
+    // (0,30). L'eau devient ainsi le refuge des proies — un prédateur qui s'y
+    // engage perd la course. C'est ce qui remplace la protection qu'apportait,
+    // par accident, l'île fragmentée.
+    if (sampleHeight(world.terrain, cfg, a.x, a.z) < cfg.waterLevel) {
+      speedCap *= p.swimSpeedFactor;
+    }
     a.vx += steer.ax * dt; a.vz += steer.az * dt;
     const sp = Math.hypot(a.vx, a.vz);
     if (sp > speedCap) { a.vx = (a.vx / sp) * speedCap; a.vz = (a.vz / sp) * speedCap; }
     const nx = a.x + a.vx * dt, nz = a.z + a.vz * dt;
-    // Jamais dans l'eau profonde : on boit depuis la rive. Si le pas direct
-    // plonge, on GLISSE le long du rivage (un axe à la fois) au lieu de bloquer
-    // net : sinon l'agent qui vise l'eau reste figé contre la berge et meurt de
-    // soif à quelques mètres du point d'eau.
+    // Le grand large reste infranchissable (au-delà de swimMaxDepth). Si le pas
+    // direct plonge trop, on GLISSE le long du fond (un axe à la fois) au lieu de
+    // bloquer net : sinon l'agent qui vise l'eau reste figé et meurt de soif à
+    // quelques mètres du point d'eau.
     const walkable = (x: number, z: number): boolean =>
-      sampleHeight(world.terrain, world.config, x, z) >= world.config.waterLevel - 0.2;
+      sampleHeight(world.terrain, cfg, x, z) >= cfg.waterLevel - cfg.swimMaxDepth;
     if (walkable(nx, nz)) {
       a.x = nx; a.z = nz;
     } else if (walkable(nx, a.z)) {

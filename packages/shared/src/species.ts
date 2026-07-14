@@ -2,6 +2,14 @@
 export interface SpeciesParams {
   maxSpeed: number;              // m/s (vitesse de croisière)
   maxForce: number;              // m/s² — accélération max de steering
+  /**
+   * Multiplicateur de vitesse dans l'eau. C'EST LE REFUGE DES PROIES : un cerf
+   * nage bien, un loup nage mal. Une proie poursuivie traverse la rivière et
+   * gagne du terrain ; le prédateur qui s'y engage perd la course. Sans cet
+   * écart, les loups atteignent tout le monde partout et rasent les troupeaux
+   * (extinction observée au harness sur certaines graines).
+   */
+  swimSpeedFactor: number;
   perceptionRadius: number;      // m
   energyDecayPerSec: number;
   hydrationDecayPerSec: number;
@@ -82,7 +90,8 @@ export interface CarnivoreParams extends SpeciesParams {
 export type HumanParams = CarnivoreParams;
 
 export const HERBIVORE: HerbivoreParams = {
-  maxSpeed: 4, maxForce: 6, perceptionRadius: 60,
+  // Le cerf nage bien : l'eau est SA porte de sortie face à une meute.
+  maxSpeed: 4, maxForce: 6, swimSpeedFactor: 0.62, perceptionRadius: 60,
   energyDecayPerSec: 1 / 150, hydrationDecayPerSec: 1 / 130, drinkPerSec: 0.35,
   criticalNeed: 0.25, seekWaterBelow: 0.5, stopDrinkAt: 0.95,
   // Fécondité proie : la brider assez pour que les prédateurs puissent la
@@ -102,7 +111,8 @@ export const HERBIVORE: HerbivoreParams = {
 };
 
 export const CARNIVORE: CarnivoreParams = {
-  maxSpeed: 3.5, maxForce: 7, perceptionRadius: 170,
+  // Le loup nage mal : s'engager dans l'eau derrière une proie, c'est la perdre.
+  maxSpeed: 3.5, maxForce: 7, swimSpeedFactor: 0.3, perceptionRadius: 170,
   // Grande réserve d'énergie (idée de Shin : « 150 vs 100 ») : un prédateur
   // survit très longtemps sans manger, ce qui lui permet de traverser le creux
   // du cycle (proies rares) sans mourir de faim avant que les proies remontent.
@@ -148,7 +158,7 @@ export const CARNIVORE: CarnivoreParams = {
  * plus tard (hors périmètre Phase 5).
  */
 export const HUMAN: HumanParams = {
-  maxSpeed: 5, maxForce: 8, perceptionRadius: 200,
+  maxSpeed: 5, maxForce: 8, swimSpeedFactor: 0.45, perceptionRadius: 200,
   energyDecayPerSec: 1 / 900, hydrationDecayPerSec: 1 / 500, drinkPerSec: 0.4,
   criticalNeed: 0.25, seekWaterBelow: 0.45, stopDrinkAt: 0.95,
   adultAgeSeconds: 80, mateEnergyMin: 2, mateHydrationMin: 2, // > 1 : jamais éligible
