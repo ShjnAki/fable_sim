@@ -8,7 +8,7 @@ let self: Agent;
 let sepX = 0, sepZ = 0, velX = 0, velZ = 0, posX = 0, posZ = 0, count = 0;
 
 function gather(n: Agent): void {
-  if (n.id === self.id) return;
+  if (n.id === self.id || n.species !== self.species) return;
   count++;
   const dx = self.x - n.x, dz = self.z - n.z;
   const d2 = dx * dx + dz * dz;

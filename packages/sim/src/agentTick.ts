@@ -1,10 +1,13 @@
-import { HERBIVORE, type AgentState, type HerbivoreParams, type Rng } from "@eco/shared";
-import { createHerbivore, type Agent } from "./agent";
+import {
+  CARNIVORE, HERBIVORE,
+  type AgentState, type HerbivoreParams, type Rng,
+} from "@eco/shared";
+import { createHerbivore, paramsOf, type Agent } from "./agent";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
 import { accumulateBoids } from "./boids";
-import { decideHerbivore, isMateEligible } from "./decide";
+import { decideCarnivore, decideHerbivore, isMateEligible } from "./decide";
 import { forEachNeighbor } from "./spatialGrid";
-import { arrive, wander, type SteerOut } from "./steering";
+import { arrive, seek, wander, type SteerOut } from "./steering";
 import { ZONE_GRASS, sampleHeight } from "./terrain";
 import type { World } from "./world";
 
@@ -65,7 +68,8 @@ let mateSeeker: Agent;
 let mateBest: Agent | null = null;
 let mateBestD2 = 0;
 function considerMate(n: Agent): void {
-  if (n.id === mateSeeker.id || !isMateEligible(n, HERBIVORE)) return;
+  if (n.id === mateSeeker.id || n.species !== mateSeeker.species
+      || !isMateEligible(n, paramsOf(n))) return;
   const dx = n.x - mateSeeker.x, dz = n.z - mateSeeker.z;
   const d2 = dx * dx + dz * dz;
   if (d2 < mateBestD2) { mateBestD2 = d2; mateBest = n; }
@@ -73,9 +77,34 @@ function considerMate(n: Agent): void {
 function findNearestMate(world: World, a: Agent): Agent | null {
   mateSeeker = a;
   mateBest = null;
-  mateBestD2 = HERBIVORE.perceptionRadius ** 2;
-  forEachNeighbor(world.grid, a.x, a.z, HERBIVORE.perceptionRadius, considerMate);
+  const r = paramsOf(a).perceptionRadius;
+  mateBestD2 = r * r;
+  forEachNeighbor(world.grid, a.x, a.z, r, considerMate);
   return mateBest;
+}
+
+// Perception de menace (herbivores) — état module, zéro alloc.
+let threatSeeker: Agent;
+let threatBest: Agent | null = null;
+let threatBestD2 = 0;
+function considerThreat(n: Agent): void {
+  if (n.species !== "carnivore") return;
+  const dx = n.x - threatSeeker.x, dz = n.z - threatSeeker.z;
+  const d2 = dx * dx + dz * dz;
+  if (d2 < threatBestD2) { threatBestD2 = d2; threatBest = n; }
+}
+/** Écrit hasThreat/threatX/threatZ. Hystérésis : rayon élargi si on fuit déjà. */
+function perceiveThreat(world: World, a: Agent, p: HerbivoreParams): void {
+  const r = a.hasThreat ? p.fleeSafeRadius : p.fleeTriggerRadius;
+  threatSeeker = a; threatBest = null; threatBestD2 = r * r;
+  forEachNeighbor(world.grid, a.x, a.z, r, considerThreat);
+  if (threatBest !== null) {
+    a.hasThreat = true;
+    a.threatX = (threatBest as Agent).x;
+    a.threatZ = (threatBest as Agent).z;
+  } else {
+    a.hasThreat = false;
+  }
 }
 
 /** Naissance : le parent au plus petit id l'exécute — jamais deux fois. */
@@ -97,7 +126,7 @@ function birth(world: World, a: Agent, mate: Agent): void {
 }
 
 export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
-  const p = HERBIVORE;
+  const p = paramsOf(a);
   if (a.state === "Dead") { a.deadForSeconds += dt; return; }
 
   a.ageSeconds += dt;
@@ -119,12 +148,23 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
     return;
   }
 
-  const d = decideHerbivore(a, p);
+  // Perception (écrit sur l'agent) PUIS décision pure (architecture §7).
+  let d = null;
+  if (a.species === "herbivore") {
+    perceiveThreat(world, a, HERBIVORE);
+    d = decideHerbivore(a, HERBIVORE);
+  } else {
+    if (a.state !== "Hunt") {
+      a.stamina = Math.min(1, a.stamina + CARNIVORE.staminaRegenPerSec * dt);
+    }
+    d = decideCarnivore(a, CARNIVORE);
+  }
   if (d) applyTransition(a, d.state, d.cause, world.tickCount);
 
   steer.ax = 0; steer.az = 0;
   let moving = true;
   let boidsMode: 0 | 1 | 2 = 0; // 0 aucun, 1 séparation seule, 2 troupeau complet
+  let speedCap = p.maxSpeed;
 
   switch (a.state) {
     case "Wander":
@@ -181,6 +221,15 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       if (d2 < 4 && a.id < mate.id) birth(world, a, mate);
       break;
     }
+    case "Flee": {
+      const fdx = a.x - a.threatX, fdz = a.z - a.threatZ;
+      const dist = Math.hypot(fdx, fdz) || 1;
+      // Un affamé court moins vite : les faibles se font attraper (émergence).
+      const fleeSpeed = HERBIVORE.maxSpeed * HERBIVORE.fleeBoost * (0.7 + 0.3 * a.energy);
+      seek(a, a.x + (fdx / dist) * 20, a.z + (fdz / dist) * 20, fleeSpeed, HERBIVORE.maxForce, steer);
+      speedCap = fleeSpeed;
+      break; // pas de boids : la panique prime
+    }
     case "Eat": {
       const i = cellIndexAt(world.config, a.x, a.z);
       const avail = world.biomass.values[i]!;
@@ -203,7 +252,7 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
   if (moving) {
     a.vx += steer.ax * dt; a.vz += steer.az * dt;
     const sp = Math.hypot(a.vx, a.vz);
-    if (sp > p.maxSpeed) { a.vx = (a.vx / sp) * p.maxSpeed; a.vz = (a.vz / sp) * p.maxSpeed; }
+    if (sp > speedCap) { a.vx = (a.vx / sp) * speedCap; a.vz = (a.vz / sp) * speedCap; }
     const nx = a.x + a.vx * dt, nz = a.z + a.vz * dt;
     // Jamais dans l'eau profonde : on boit depuis la rive.
     if (sampleHeight(world.terrain, world.config, nx, nz) >= world.config.waterLevel - 0.2) {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { HERBIVORE } from "@eco/shared";
+import { createCarnivore } from "./agent";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
 import { createWorld, tickWorld } from "./world";
 
@@ -67,6 +68,56 @@ describe("un agent qui vit", () => {
     const w = createWorld({ waterLevel: -5, initialHerbivores: 1 });
     for (let t = 0; t < 4000 && w.agents.length > 0; t++) tickWorld(w);
     expect(w.agents.length).toBe(0);
+  });
+});
+
+describe("fuite", () => {
+  it("hystérésis : menace à 15 m, encore à 25 m, éteinte à 40 m", () => {
+    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 0 });
+    const prey = w.agents[0]!;
+    const wolf = createCarnivore(99, prey.x + 15, prey.z, w.rng);
+    wolf.nextHuntAgeSeconds = 1e9; // il ne chasse pas : on teste la perception
+    w.agents.push(wolf);
+    tickWorld(w);
+    expect(prey.hasThreat).toBe(true);
+    expect(prey.state).toBe("Flee");
+    wolf.x = prey.x + 25; // entre trigger (20) et safe (35)
+    tickWorld(w);
+    expect(prey.hasThreat).toBe(true);
+    wolf.x = prey.x + 40;
+    tickWorld(w);
+    expect(prey.hasThreat).toBe(false);
+    expect(prey.state).toBe("Wander");
+    expect(prey.transitions.at(-1)!.cause).toBe("danger écarté");
+  });
+
+  it("la fuite s'éloigne de la menace et dépasse maxSpeed", () => {
+    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 0 });
+    const prey = w.agents[0]!;
+    prey.energy = 1;
+    const wolf = createCarnivore(99, prey.x - 5, prey.z, w.rng);
+    wolf.nextHuntAgeSeconds = 1e9;
+    w.agents.push(wolf);
+    const x0 = prey.x;
+    for (let t = 0; t < 40; t++) { wolf.x = prey.x - 5; wolf.vx = 0; tickWorld(w); }
+    expect(prey.x).toBeGreaterThan(x0 + 5); // il s'éloigne en +X
+    expect(Math.hypot(prey.vx, prey.vz)).toBeGreaterThan(HERBIVORE.maxSpeed);
+  });
+});
+
+describe("appariement inter-espèces", () => {
+  it("un couple mixte ne produit rien", () => {
+    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 0 });
+    const h = w.agents[0]!;
+    const c = createCarnivore(50, h.x + 1, h.z, w.rng);
+    c.nextHuntAgeSeconds = 1e9;
+    w.agents.push(c);
+    for (const ag of [h, c]) {
+      ag.energy = 0.9; ag.hydration = 0.9; ag.nextMateAgeSeconds = 0;
+      ag.ageSeconds = 100;
+    }
+    for (let t = 0; t < 100; t++) tickWorld(w);
+    expect(w.agents.length).toBe(2); // aucune naissance
   });
 });
 

@@ -2,7 +2,7 @@ import {
   DEFAULT_WORLD_CONFIG, HERBIVORE, createRng,
   type Rng, type TickSnapshot, type WorldConfig,
 } from "@eco/shared";
-import { createHerbivore, findSpawnCells, type Agent } from "./agent";
+import { createHerbivore, findSpawnCells, paramsOf, type Agent } from "./agent";
 import { tickAgent } from "./agentTick";
 import { createBiomass, regrowBiomass, type BiomassField } from "./biomass";
 import { createSpatialGrid, rebuildGrid, type SpatialGrid } from "./spatialGrid";
@@ -63,7 +63,7 @@ export function tickWorld(world: World): void {
   // Despawn des cadavres (rare : la boucle inverse + splice est acceptable ici).
   for (let i = world.agents.length - 1; i >= 0; i--) {
     const a = world.agents[i]!;
-    if (a.state === "Dead" && a.deadForSeconds > HERBIVORE.corpseDespawnSeconds) {
+    if (a.state === "Dead" && a.deadForSeconds > paramsOf(a).corpseDespawnSeconds) {
       world.agents.splice(i, 1);
     }
   }
