@@ -191,7 +191,7 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       break;
     case "SeekFood": {
       boidsMode = 1;
-      if (!a.hasTarget && !findNearestFood(world, a, p) && a.memory.hasFood) {
+      if (!a.hasTarget && !findNearestFood(world, a, HERBIVORE) && a.memory.hasFood) {
         a.targetX = a.memory.foodX; a.targetZ = a.memory.foodZ; a.hasTarget = true;
       }
       if (a.hasTarget) {
@@ -231,11 +231,12 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       break; // pas de boids : la panique prime
     }
     case "Eat": {
+      const ph = HERBIVORE; // seuls les herbivores mangent le champ de biomasse
       const i = cellIndexAt(world.config, a.x, a.z);
       const avail = world.biomass.values[i]!;
-      const take = Math.min(p.eatBiomassPerSec * dt, avail);
+      const take = Math.min(ph.eatBiomassPerSec * dt, avail);
       world.biomass.values[i] = avail - take;
-      a.energy = Math.min(1, a.energy + take * (p.eatEnergyPerSec / p.eatBiomassPerSec));
+      a.energy = Math.min(1, a.energy + take * (ph.eatEnergyPerSec / ph.eatBiomassPerSec));
       a.vx = a.vz = 0; moving = false;
       if (avail - take < 0.05) {
         a.memory.hasFood = false; // cellule épuisée : l'oublier
@@ -245,8 +246,9 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
     }
   }
 
-  if (moving && boidsMode > 0) {
-    accumulateBoids(a, world.grid, p, boidsMode === 2, steer);
+  // Seuls les herbivores ont des boids (les carnivores chassent en solitaire).
+  if (moving && boidsMode > 0 && a.species === "herbivore") {
+    accumulateBoids(a, world.grid, HERBIVORE, boidsMode === 2, steer);
   }
 
   if (moving) {
