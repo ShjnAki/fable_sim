@@ -38,8 +38,73 @@ mêmes compteurs de morts (729/404/200/73/43/18). Deux tests le verrouillent :
 le cerf meurt toujours d'un coup net (sans perdre un point de vie), et une
 graine fixe sans joueur rejoue la partie à l'identique.
 
-**Ce qui reste à faire :** *jouer dix minutes et dire si on a peur des loups.*
-C'est le seul critère de sortie de cette phase, et il n'appartient qu'à Shin.
+---
+
+## ⚠️ REPRISE DE SESSION — LIRE CECI D'ABORD (2026-07-14, fin de session)
+
+### La découverte majeure du projet : l'île était coupée en quatre
+
+**Shin l'a trouvée EN JOUANT** (c'est tout l'intérêt d'avoir fait le jeu avant le
+serveur) : *« les agents ne peuvent pas traverser l'eau / nager »*.
+
+Les rivières font **4 m de fond** et le prédicat de déplacement exigeait
+`height >= waterLevel - 0.2`. **Aucun agent ne franchissait une rivière, nulle
+part.** L'île était **quatre îles** (27,9 % / 25,3 % / 23,9 % / 22,7 %), et un
+quart du monde **n'avait aucun prédateur** : les proies y proliféraient jusqu'à
+raser l'herbe et mourir de faim, pendant que 2-3 loups isolés s'éteignaient
+ailleurs. Signature visible depuis la Phase 4 : **404 morts de faim contre 200
+prédations**.
+
+**Les ~30 itérations de tuning de la Phase 4 se battaient contre une carte
+cassée.** Journal complet : **`docs/tuning-phase6-connectivite.md`**.
+Diagnostics : `packages/sim/scripts/connectivity.ts` et `swimdepth.ts`.
+
+**Correctif livré (commité) :** on nage. `swimMaxDepth: 4.5` m (au-dessus des 4 m
+des rivières, sous les 5 m qui ouvriraient l'océan) et un
+`SpeciesParams.swimSpeedFactor` **propre à chaque espèce** : cerf 0,62, loup 0,30,
+humain 0,45 → **l'eau devient le refuge des proies**, par émergence et non par
+règle.
+
+Effet (graine `fable-1`, 2 h) : herbivores [143..326] → **[140..185]**,
+carnivores [1..28] → **[8..36]**, loups morts de faim 73 → **2**, et la
+**prédation devient la 1re cause de mortalité**. La chaîne trophique fonctionne
+pour la première fois du projet.
+
+### ⚠️ CE QUI RESTE OUVERT (le travail à reprendre)
+
+**Les paramètres d'espèces sont encore ceux tunés pour la carte cassée.** Sur la
+carte recollée, les loups atteignent toutes les proies : ils culminent à **34-37**
+(contre 28 avant) et **2 graines sur 4 s'éteignent par surexploitation des
+proies**. Ce n'est pas une régression — c'est une fragilité *différente*, et la
+première qui soit *réelle*. Mais elle doit être corrigée.
+
+**Le levier indiqué par les chiffres : il y a trop de prédateurs.** Pistes à
+balayer (`CARNIVORE`) : `territoryMax` 2 → 1, `mateCooldownSeconds` 160 → 240-320,
+`huntCommitRadius` 60 → 35-45 ; et en contrepoint `HERBIVORE.mateCooldownSeconds`
+112 → 85-95 (limité : les proies meurent déjà de faim, la capacité de charge est
+proche).
+
+**Outil prêt à l'emploi :** `packages/sim/scripts/sweep.ts` — 10 variantes déjà
+écrites, 6 graines, 2 h chacune. **Un run isolé ne prouve RIEN** sur un système
+chaotique : il mesure un *taux* de survie. Une variante par processus (le sim est
+mono-thread), à lancer en parallèle :
+
+```bash
+cd packages/sim
+printf '%s\n' 0 1 2 3 4 5 6 7 8 9 \
+  | xargs -P 4 -I{} sh -c 'pnpm exec vite-node scripts/sweep.ts -- variant={} hours=2'
+```
+
+**Le balayage a été lancé mais INTERROMPU avant de rendre le moindre résultat**
+(session close à la demande de Shin) — il n'y a donc aucune conclusion de tuning
+à ce jour. C'est le premier chantier de la reprise.
+
+### L'autre chose en attente
+
+**La validation manette-en-main de la Phase 6** : *« je joue dix minutes et j'ai
+peur des loups »*. C'est le critère de sortie, et il n'appartient qu'à Shin.
+L'équilibre du jeu (sprint 11 contre 12, 3 morsures, 4 coups) n'est pas tuné.
+`pnpm dev --host` puis `?play` (ou `Tab`).
 
 ---
 
