@@ -7,25 +7,39 @@
 
 ## État actuel
 
-**Phase en cours :** Phase 6 — Monde persistant serveur (démarrage 2026-07-14)
-**Statut :** Phases 0 à 5 **livrées et validées par Shin**. Base saine :
-116 tests verts (106 sim + 10 client), typecheck strict OK, tick 0,80 ms à
-600 agents.
+**Phase en cours :** Phase 6 — Incarnation & survie — **CODE LIVRÉ le 2026-07-14,
+validation manette-en-main par Shin EN ATTENTE**
 
-La Phase 5 (interaction & observation) est close : contrôle du temps, inspection
-au clic, outils de perturbation, espèce Humain apex — détail dans l'historique
-ci-dessous.
+**LE PROJET EST DEVENU UN JEU.** Décision de Shin (2026-07-14) : *« Pour l'instant
+ça reste une simulation. On ne voit que de la vie mais rien d'autre. »* Le plan de
+phases a été refondu — voir `docs/architecture.md` § Révisions. Le serveur
+persistant, qui devait être la Phase 6, **glisse en Phase 9** : on ne construit pas
+de netcode autour d'un jeu dont personne n'a vérifié qu'il est bon.
 
-**Cadrage Phase 6 acté avec Shin (2026-07-14) :**
-- **Cible** : stack déployable **vérifiée en local** (`packages/server` Node +
-  WebSocket, Dockerfile, docker-compose + Caddy, persistance disque). Le
-  déploiement VPS lui-même reste à la main de Shin (procédure fournie) — je n'ai
-  pas ses accès SSH.
-- **Mode local conservé** : `createMainThreadHost` reste le défaut (dev rapide,
-  harness de tuning intact) ; `?server=wss://…` bascule sur `RemoteSimHost`.
-- **Droits** : spectateurs en **lecture seule** ; vitesse du temps ET
-  perturbations réservées à l'admin (token). L'équilibre h24 est trop fragile
-  pour être ouvert à tous.
+**Nouveau plan :** 6 = incarnation · 7 = craft · 8 = lignée & hérédité ·
+9 = serveur & multi.
+
+**Livré en Phase 6** (spec :
+`docs/superpowers/specs/2026-07-14-phase-6-incarnation-design.md`) :
+tu incarnes un humain de la simulation. Caméra 3ᵉ personne, contrôle direct
+(ZQSD/WASD + sprint), jauge de vitalité, meutes qui osent t'attaquer,
+chasser → tuer → **dévorer la carcasse**, boire à la rive, mort et renaissance,
+HUD de survie. `Tab` bascule en mode spectateur, où **tous les outils de la
+Phase 5 restent intacts**.
+
+**Santé de la base :** 139 tests verts (122 sim + 11 client + 6 shared),
+typecheck strict OK, tick **1,01 ms** à 600 agents (budget 3 ms — en hausse
+depuis les 0,80 ms de la Phase 3, marge encore large).
+
+**L'équilibre de la Phase 4 est PROUVÉ intact**, pas seulement supposé : le
+harness rejoué sur le commit d'avant la phase (`6388307`) rend un verdict
+**identique au caractère près** — herbivores [143..326], carnivores [1..28],
+mêmes compteurs de morts (729/404/200/73/43/18). Deux tests le verrouillent :
+le cerf meurt toujours d'un coup net (sans perdre un point de vie), et une
+graine fixe sans joueur rejoue la partie à l'identique.
+
+**Ce qui reste à faire :** *jouer dix minutes et dire si on a peur des loups.*
+C'est le seul critère de sortie de cette phase, et il n'appartient qu'à Shin.
 
 ---
 
@@ -54,6 +68,23 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
   Lotka-Volterra ; historique de tuning complet dans `docs/tuning-phase4.md`.**
 - `harness` : `pnpm harness hours=2 seed=... [param=valeur]` — CSV + verdict
   extinction/explosion/stable, pour re-tuner l'équilibre.
+- **`PLAYER` (`species.ts`, Phase 6) — L'ÉQUILIBRE DU JEU N'EST PAS TUNÉ.**
+  Ce sont des valeurs de départ défendables, pas des vérités : le premier retour
+  manette-en-main de Shin est *attendu* pour les corriger.
+  - **L'équation de la fuite** : le loup sprinte à 12 m/s, le joueur à **11** — le
+    loup gagne 1 m/s. Depuis ses 45 m de portée de sprint il lui faudrait ~45 s
+    pour te toucher, mais son souffle ne dure que **25 s** : il abandonne avant.
+    On ne fuit pas par la vitesse, on fuit par le souffle (**30 s** pour le
+    joueur). Surpris à 10 m en revanche, on est mordu en 10 s.
+  - `strikeDamageCarnivore` (0,25 → **4 coups** pour abattre un loup),
+    `strikeCooldownSeconds` (0,8), `strikeRange` (2,5 m), `eatCorpsePerSec`
+    (0,25), `healthRegenPerSec` (0,02) / `healthRegenDelaySeconds` (8 s).
+- **Combat carnivore → humain (`CARNIVORE`)** : `humanHuntPackMin` (2),
+  `humanHuntPackMinNight` (**1** — la nuit, un solitaire tente sa chance),
+  `humanHuntPackRadius` (35 m), `biteDamage` (0,34 → **3 morsures tuent**),
+  `biteCooldownSeconds` (1,5 → une meute de trois te dévore en ~5 s).
+  **Ces valeurs ne touchent QUE le duel loup ↔ humain** : la prédation des
+  herbivores est intacte.
 
 ---
 
@@ -67,6 +98,31 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
   `docs/tuning-phase4.md` pour le bilan et les pistes.
 
 ## Points fragiles connus
+
+### Phase 6 (jeu)
+
+- **Vitalité asymétrique — le compromis central de la phase.** Les loups ont des
+  points de vie face au joueur, mais tuent toujours les cerfs d'un seul coup au
+  contact. C'est incohérent « en fiction », et parfaitement délibéré : c'est le
+  prix à payer pour ne pas retuner l'équilibre Lotka-Volterra de la Phase 4
+  (≈30 itérations). Signalé plutôt que caché.
+- **L'humain IA et le joueur ne mangent pas pareil** : l'humain IA (outil de
+  perturbation Phase 5) tue et gagne son énergie dans le même geste ; le joueur
+  doit dévorer la carcasse. Incohérence assumée — elle préserve la Phase 5 et
+  fabrique la tension de la carcasse convoitée.
+- **Frappe sans cône de visée** : elle touche la cible la plus proche dans
+  2,5 m. Suffisant à cette portée ; à raffiner si ça paraît mou.
+- **Sprint du joueur à 11 m/s** (~40 km/h) : irréaliste pour un humain. Choix de
+  *game feel* assumé — à vitesse réelle, aucune fuite n'est possible et aucune
+  chasse ne conclut.
+- **Pas d'animation de personnage** (pas de skinning — architecture §9).
+  L'incarnation passe par la caméra et le HUD, pas par la belle animation.
+- **Tick à 1,01 ms à 600 agents** (contre 0,80 ms en Phase 3). Marge encore
+  large sur le budget de 3 ms, mais la hausse est réelle et non expliquée
+  finement — à surveiller. Le comptage de meute, lui, est *inactif* tant
+  qu'aucun humain n'existe (`humanCount === 0`), donc le harness ne paie rien.
+
+### Phases antérieures
 
 - **Getters statiques de `SimHost` synchrones** — devront devenir asynchrones au
   passage en Web Worker (Phase 3). Assumé et documenté (architecture §13).
@@ -215,9 +271,42 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
 - Non fait (assumé) : l'humain ne se reproduit pas et n'est pas omnivore —
   c'est un outil de perturbation vivant, pas une 3ᵉ espèce démographique.
 
-### Phase 6 — Monde persistant serveur (Node + WebSocket + Docker/Caddy)
-- Statut : **EN COURS** (démarrée le 2026-07-14) — cadrage acté, voir « État
-  actuel » en haut de ce fichier.
+### Phase 6 — Incarnation & survie (le projet devient un jeu)
+- Statut : **CODE LIVRÉ le 2026-07-14** — validation manette-en-main par Shin en
+  attente (critère de sortie : « je joue dix minutes et j'ai peur des loups »).
+  (spec : `docs/superpowers/specs/2026-07-14-phase-6-incarnation-design.md`,
+  plan exécuté en entier :
+  `docs/superpowers/plans/2026-07-14-phase-6-incarnation.md`)
+- Livré :
+  - **Le joueur est un `Agent`** dont le `decide()` est remplacé par les touches.
+    Le reste de la sim ignore son existence, et il traverse le **même bloc de
+    mouvement** que les autres (berges, culs-de-sac, bornes) : il hérite
+    gratuitement de toute la physique de terrain déjà déboguée.
+  - **Lâcher les commandes (`Tab`) ne le supprime pas** : la FSM reprend la main
+    et son humain continue de vivre en IA. C'est la maquette du comportement de
+    déconnexion de la Phase 9, obtenue pour rien.
+  - **Vitalité** (`health`) : morsure de loup = −0,34 (3 morsures tuent, cadence
+    1,5 s) ; frappe du joueur = −0,25 sur un loup (4 coups à mains nues).
+    Cicatrisation après 8 s sans blessure. **Uniquement dans le duel loup ↔
+    humain.**
+  - **La menace est démographique, pas scriptée** : un loup seul n'ose pas ; il
+    lui faut 2 congénères dans 35 m — **1 seul la nuit**. Trop de loups sur l'île
+    et elle devient invivable ; trop peu et les herbivores épuisent l'herbe.
+  - **Chasser ≠ manger** : la frappe laisse une **carcasse** qu'il faut dévorer
+    (`E`) — et une carcasse fraîche **attire les loups** (le charognage de la
+    Phase 4, à 150 m). Tension entièrement émergente, pas une ligne écrite pour.
+  - Caméra 3ᵉ personne (pointer lock, molette), HUD 4 jauges + alerte de traque,
+    écran de mort avec bilan, renaissance.
+  - **Bug de rendu latent corrigé** (présent depuis la Phase 2) : Three.js fige
+    la sphère englobante d'un `InstancedMesh` au premier frame, où les compteurs
+    valent 0 ; la sphère sort vide et le test de frustum se réduit à « l'origine
+    du monde est-elle dans le champ ? ». Vrai en caméra libre, faux dès que le
+    joueur s'en éloigne → **tous les agents disparaissaient en mode jeu**.
+    Corrigé par `frustumCulled = false` (ces meshes couvrent toute l'île de
+    toute façon).
+  - **Bug de comptage corrigé** : un humain était compté parmi les carnivores.
+- Non fait (assumé) : pas d'animation de personnage (pas de skinning —
+  architecture §9) ; le joueur est la même capsule toon que l'humain IA.
 
 ### Phase 7 (bonus) — Évolution
 - Statut : à venir
