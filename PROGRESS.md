@@ -7,20 +7,25 @@
 
 ## État actuel
 
-**Phase en cours :** Phase 4 — Chaîne trophique (close côté mécaniques)
-**Statut :** chaîne trophique complète + rythme nocturne (115 tests verts,
-typecheck OK, perf 600 agents = 0,9 ms). Livré : carnivores (silhouette cône),
-prédation par poursuite à endurance en deux temps (approche au trot, sprint au
-contact + interception), fuite, charognage, territorialité, refuge du troupeau,
-refuge de rareté, clans à tanières migrantes, rivières franchissables + berges
-douces, **sommeil groupé nocturne** (proies vulnérables la nuit → chasse
-nocturne), grande réserve d'énergie carnivore, valeur nutritive de la proie
-selon l'âge. **Équilibre : plateau quasi-stationnaire ~35 min** (carnivores
-~25, herbivores ~160 — le meilleur résultat du projet) puis bascule lente ;
-Shin a choisi (2026-07-14) d'accepter cet équilibre émergent tel quel plutôt
-qu'un filet de recolonisation artificiel. Journal complet :
-`docs/tuning-phase4.md`. **Validation visuelle finale par Shin en attente.**
-**Dernier commit pertinent :** rythme nocturne + équilibre ~35 min
+**Phase en cours :** Phase 6 — Monde persistant serveur (démarrage 2026-07-14)
+**Statut :** Phases 0 à 5 **livrées et validées par Shin**. Base saine :
+116 tests verts (106 sim + 10 client), typecheck strict OK, tick 0,80 ms à
+600 agents.
+
+La Phase 5 (interaction & observation) est close : contrôle du temps, inspection
+au clic, outils de perturbation, espèce Humain apex — détail dans l'historique
+ci-dessous.
+
+**Cadrage Phase 6 acté avec Shin (2026-07-14) :**
+- **Cible** : stack déployable **vérifiée en local** (`packages/server` Node +
+  WebSocket, Dockerfile, docker-compose + Caddy, persistance disque). Le
+  déploiement VPS lui-même reste à la main de Shin (procédure fournie) — je n'ai
+  pas ses accès SSH.
+- **Mode local conservé** : `createMainThreadHost` reste le défaut (dev rapide,
+  harness de tuning intact) ; `?server=wss://…` bascule sur `RemoteSimHost`.
+- **Droits** : spectateurs en **lecture seule** ; vitesse du temps ET
+  perturbations réservées à l'admin (token). L'équilibre h24 est trop fragile
+  pour être ouvert à tous.
 
 ---
 
@@ -187,10 +192,32 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
   `docs/tuning-phase4.md` ; 5ᵉ mécanisme proposé si stabilité stricte requise.
 
 ### Phase 5 — Interaction & observation
-- Statut : à venir
+- Statut : **LIVRÉE, validée à l'œil par Shin le 2026-07-14**
+  (spec : `docs/superpowers/specs/2026-07-14-phase-5-interaction-design.md`,
+  plan exécuté en entier :
+  `docs/superpowers/plans/2026-07-14-phase-5-interaction.md`)
+- Livré :
+  - **Contrôle du temps** : barre de temps (Pause, 0.5/1/2/4/8×), raccourcis
+    clavier (Espace, 1-5), `SimHost.getSpeed()`.
+  - **Inspection au clic** : picking par raycast sur les `InstancedMesh`
+    (`agentsMesh.pick`), marqueur de sélection (anneau tournant), inspecteur
+    épinglé sur l'agent choisi et multi-espèces (affiche l'espèce).
+  - **Perturbations** : palette d'outils (Inspecter / +Herbivore / +Carnivore /
+    +Humain au pinceau) via `SimHost.spawnAgent(species, x, z)` +
+    `spawnAgentAt()` côté sim (glisse vers l'herbe si l'on clique dans l'eau) ;
+    Sécheresse (×0,25) et Abondance (×2 +0,3) via `SimHost.applyEnvironment()`.
+  - **Espèce Humain** : apex non-reproducteur (`HUMAN`), chasse **les deux**
+    autres espèces (herbivores ET carnivores), très rapide (sprint 14 m/s),
+    grande réserve d'énergie ; herbivores et carnivores le fuient.
+    `initialHumans: 0` par défaut → **déterminisme des runs de tuning préservé**
+    (il n'apparaît qu'au spawn manuel).
+- 116 tests (106 sim + 10 client), typecheck strict OK.
+- Non fait (assumé) : l'humain ne se reproduit pas et n'est pas omnivore —
+  c'est un outil de perturbation vivant, pas une 3ᵉ espèce démographique.
 
 ### Phase 6 — Monde persistant serveur (Node + WebSocket + Docker/Caddy)
-- Statut : à venir
+- Statut : **EN COURS** (démarrée le 2026-07-14) — cadrage acté, voir « État
+  actuel » en haut de ce fichier.
 
 ### Phase 7 (bonus) — Évolution
 - Statut : à venir
