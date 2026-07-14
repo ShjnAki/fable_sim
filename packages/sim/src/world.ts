@@ -22,6 +22,8 @@ export interface World {
   /** Effectifs vivants du tick, par espèce (recalculés à chaque tick). */
   herbivoreCount: number;
   carnivoreCount: number;
+  /** true pendant la nuit (fenêtre nightStart..nightEnd), recalculé par tick. */
+  isNight: boolean;
   /** RNG unique de la sim vivante — tout tirage passe par lui (déterminisme). */
   rng: Rng;
   nextAgentId: number;
@@ -76,6 +78,7 @@ export function createWorld(overrides: Partial<WorldConfig> = {}): World {
     deaths: {},
     herbivoreCount: config.initialHerbivores,
     carnivoreCount: config.initialCarnivores,
+    isNight: false,
     rng,
     nextAgentId: config.initialHerbivores + config.initialCarnivores + 1,
     // On démarre en matinée (30 % du jour) pour que la première vue soit éclairée.
@@ -101,6 +104,9 @@ export function tickWorld(world: World): void {
   }
   world.herbivoreCount = herb;
   world.carnivoreCount = carn;
+  // Nuit : conditionne le sommeil groupé des herbivores (chasse nocturne).
+  const tod = timeOfDay(world);
+  world.isNight = tod > world.config.nightStart || tod < world.config.nightEnd;
   rebuildGrid(world.grid, world.agents);
   const aliveCount = world.agents.length; // les nouveau-nés du tick attendront le suivant
   for (let i = 0; i < aliveCount; i++) {

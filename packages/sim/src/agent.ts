@@ -36,6 +36,9 @@ export interface Agent {
   crowded: boolean;
   /** Espèce en danger (effectif faible) — reproduction facilitée (refuge). */
   rare: boolean;
+  /** Nuit + entouré : conditions de sommeil, écrites avant decide (herbivores). */
+  night: boolean;
+  sheltered: boolean;
   /** Clan (carnivores) et position de la tanière — rallient là pour se reproduire. */
   clanId: number;
   denX: number;
@@ -63,6 +66,7 @@ function createAgent(
     nextMateAgeSeconds: 0,
     stamina: 1, nextHuntAgeSeconds: 0,
     hasThreat: false, threatX: 0, threatZ: 0, crowded: false, rare: false,
+    night: false, sheltered: false,
     clanId: 0, denX: 0, denZ: 0,
     hasTarget: false, targetX: 0, targetZ: 0,
     memory: { hasWater: false, waterX: 0, waterZ: 0, hasFood: false, foodX: 0, foodZ: 0 },
