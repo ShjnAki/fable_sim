@@ -7,7 +7,7 @@ import { createToonGradient } from "./materials";
 const STATE_COLORS: Record<string, number> = {
   Wander: 0xf5f5f5, SeekWater: 0x42a5f5, Drink: 0x26c6da,
   SeekFood: 0xffa726, Eat: 0xffee58, SeekMate: 0xf06292,
-  Flee: 0xba68c8, Hunt: 0xef5350, Dead: 0x616161,
+  Flee: 0xba68c8, Hunt: 0xef5350, Scavenge: 0x8d6e63, Dead: 0x616161,
 };
 
 const HERB_CAPACITY = 1024; // dimensionné pour le test de charge (?pop=600)

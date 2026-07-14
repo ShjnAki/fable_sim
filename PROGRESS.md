@@ -8,9 +8,14 @@
 ## État actuel
 
 **Phase en cours :** Phase 4 — Chaîne trophique
-**Statut :** démarrage (brainstorm puis plan à écrire). LA phase à risque du
-projet : tuning Lotka-Volterra — mitigation par harness headless accéléré.
-**Dernier commit pertinent :** validation Phase 3
+**Statut :** mécaniques terminées (9 tâches du plan, 86 tests verts, typecheck
+OK, perf 600 agents = 1,0 ms). Carnivores, prédation, chasse à l'endurance,
+fuite, charognage, territorialité — tous livrés et visibles à l'écran. Équilibre
+Lotka-Volterra : **coexistence métastable riche** (STABLE 20 min, oscillations
+proie/prédateur d'amplitude raisonnable), mais la stabilité stricte ≥ 2 h reste
+seed-sensible (système proche d'une bifurcation — voir `docs/tuning-phase4.md`).
+**Validation visuelle par Shin en attente** + arbitrage sur le critère 2 h.
+**Dernier commit pertinent :** charognage + verrouillage config
 
 ---
 
@@ -31,8 +36,14 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
   reproduction (éligibilité, coût 0.35, cooldown 60 s), âge adulte 45 s, âge
   max 600 ± 120 s. **L'équilibre population/biomasse n'est PAS tuné finement —
   c'est le travail de la Phase 4 (Lotka-Volterra).**
-- `initialHerbivores` (30) dans `DEFAULT_WORLD_CONFIG` ; override `?pop=N`
-  côté client pour les tests de charge.
+- `initialHerbivores` (60) / `initialCarnivores` (6) dans
+  `DEFAULT_WORLD_CONFIG` ; override `?pop=N` côté client (test de charge).
+- `CARNIVORE` (`packages/shared/src/species.ts`) — chasse (sprint, stamina,
+  killGain), charognage (scavengeRadius/Gain), territorialité
+  (territoryRadius/Max), démographie. **Ce sont les leviers de l'équilibre
+  Lotka-Volterra ; historique de tuning complet dans `docs/tuning-phase4.md`.**
+- `harness` : `pnpm harness hours=2 seed=... [param=valeur]` — CSV + verdict
+  extinction/explosion/stable, pour re-tuner l'équilibre.
 
 ---
 
@@ -61,8 +72,15 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
   plusieurs espèces coexisteront (Phase 3/4).
 - **L'agent ignore les pentes** (pas d'évitement de roche) — il peut gravir de
   la roche abrupte. Steering d'évitement en Phase 3+ si visuellement gênant.
-- Le tuning Lotka-Volterra (Phase 4) reste le risque majeur du projet —
-  mitigation : harness headless accéléré (architecture §13).
+- **Équilibre Lotka-Volterra (Phase 4) : coexistence métastable, pas stabilité
+  stricte 2 h garantie** — système proche d'une bifurcation, issue seed-sensible
+  entre ~1 h et ~2 h. C'était le risque majeur annoncé du projet ; les
+  amortisseurs (territorialité, charognage) l'ont fortement atténué sans
+  l'éliminer. Re-tuner via `pnpm harness` ; durcissement possible : proie-refuge
+  par le troupeau (`docs/tuning-phase4.md`).
+- **Charognage = scan linéaire des cadavres** par carnivore affamé sans proie
+  (pas la grille, qui exclut les morts). Rare, coût négligeable ; à indexer si
+  un jour beaucoup de carnivores charognent en même temps.
 - Environnement WSL2 sans navigateur : les vérifications visuelles passent par le
   navigateur Windows de Shin (Vite écoute sur `--host`).
 
@@ -137,7 +155,20 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
   71 tests (dont charge : 600 agents = tick 0,80 ms), typecheck strict OK.
 
 ### Phase 4 — Chaîne trophique
-- Statut : à venir
+- Statut : **mécaniques terminées le 2026-07-14, validation Shin + arbitrage
+  critère 2 h en attente** (spec :
+  `docs/superpowers/specs/2026-07-14-phase-4-chaine-trophique-design.md`,
+  plan : `docs/superpowers/plans/2026-07-14-phase-4-chaine-trophique.md`).
+- Livré : espèces `SpeciesParams`/`CarnivoreParams`, carnivores, prédation par
+  poursuite à l'endurance (sprint + stamina + épuisement), fuite herbivore
+  (vitesse liée à l'énergie → les faibles se font attraper), charognage,
+  territorialité prédatrice (densité-dépendance), harness headless
+  (`pnpm harness`) avec verdict et compteurs de morts. Client : mesh carnivore
+  distinct, couleurs Hunt/Flee/Scavenge, graphe à 2 courbes. 86 tests.
+- **Point ouvert (honnêteté technique) :** l'équilibre tient une coexistence
+  métastable démontrable (oscillations visibles) mais pas une stabilité stricte
+  garantie ≥ 2 h sur toutes les graines — le système est proche d'une
+  bifurcation. Options de durcissement documentées dans `docs/tuning-phase4.md`.
 
 ### Phase 5 — Interaction & observation
 - Statut : à venir

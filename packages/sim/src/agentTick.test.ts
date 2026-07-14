@@ -113,6 +113,28 @@ describe("chasse", () => {
     expect(carn[0]!.ageSeconds).toBeGreaterThanOrEqual(CARNIVORE.adultAgeSeconds);
   });
 
+  it("charogne : un carnivore affamé sans proie mange un cadavre proche", () => {
+    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 1 });
+    const prey = w.agents.find((a) => a.species === "herbivore")!;
+    const wolf = w.agents.find((a) => a.species === "carnivore")!;
+    // La proie vivante est loin (hors engagement) ; un cadavre est tout près.
+    prey.x = wolf.x + 300; prey.z = wolf.z;
+    prey.x = Math.max(-200, Math.min(200, prey.x));
+    wolf.energy = 0.4; wolf.hydration = 1; wolf.nextHuntAgeSeconds = 0;
+    wolf.nextMateAgeSeconds = 1e9;
+    // Un cadavre à 10 m du loup.
+    const corpse = createCarnivore(77, wolf.x + 10, wolf.z, w.rng);
+    corpse.state = "Dead"; corpse.deadForSeconds = 1;
+    w.agents.push(corpse);
+    const e0 = wolf.energy;
+    for (let t = 0; t < 200 && !wolf.transitions.some((tr) => tr.cause === "charogne mangée"); t++) {
+      tickWorld(w);
+    }
+    expect(wolf.transitions.some((tr) => tr.to === "Scavenge")).toBe(true);
+    expect(wolf.transitions.some((tr) => tr.cause === "charogne mangée")).toBe(true);
+    expect(wolf.energy).toBeGreaterThan(e0);
+  });
+
   it("déterminisme complet à deux espèces", () => {
     const w1 = createWorld(), w2 = createWorld();
     for (let t = 0; t < 1500; t++) { tickWorld(w1); tickWorld(w2); }

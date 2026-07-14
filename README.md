@@ -23,5 +23,7 @@ Contrôles : souris = orbite/zoom · ZQSD/WASD/flèches = déplacement.
 
 ## État
 
-Phase 3 (population : troupeaux, reproduction, graphe démographique) terminée
-côté code — suivi détaillé dans `PROGRESS.md`.
+Phase 4 (chaîne trophique : carnivores, prédation, chasse à l'endurance,
+fuite, charognage) — mécaniques terminées ; équilibre Lotka-Volterra en
+coexistence métastable. Harness de tuning : `pnpm harness`. Suivi détaillé
+dans `PROGRESS.md` et `docs/tuning-phase4.md`.

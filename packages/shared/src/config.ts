@@ -39,6 +39,6 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   biomassRegrowthRate: 0.08,
   dayLengthSeconds: 600,
   tickRateHz: 20,
-  initialHerbivores: 150,
-  initialCarnivores: 10,
+  initialHerbivores: 60,
+  initialCarnivores: 6,
 };

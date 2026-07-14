@@ -64,7 +64,7 @@ export function decideCarnivore(a: Agent, p: CarnivoreParams): Decision | null {
     return { state: "SeekWater", cause: "soif critique" };
   }
   if (a.hydration >= p.criticalNeed && a.energy < p.criticalNeed
-      && a.state !== "Hunt" && a.state !== "Drink" && canHunt) {
+      && a.state !== "Hunt" && a.state !== "Scavenge" && a.state !== "Drink" && canHunt) {
     return { state: "Hunt", cause: "faim critique" };
   }
   if (a.state === "Drink" && a.hydration >= p.stopDrinkAt) {

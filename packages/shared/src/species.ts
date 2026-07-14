@@ -48,6 +48,8 @@ export interface CarnivoreParams extends SpeciesParams {
   staminaRegenPerSec: number;
   killEnergyGain: number;        // énergie gagnée par proie
   killDistance: number;          // m — distance de mise à mort
+  scavengeRadius: number;        // m — rayon de recherche d'un cadavre
+  scavengeEnergyGain: number;    // énergie d'un cadavre (< kill : plancher, pas festin)
   huntCooldownSeconds: number;   // digestion après un kill
   huntRetrySeconds: number;      // délai après un abandon (épuisé / aucune proie)
 }
@@ -58,7 +60,7 @@ export const HERBIVORE: HerbivoreParams = {
   criticalNeed: 0.25, seekWaterBelow: 0.5, stopDrinkAt: 0.95,
   adultAgeSeconds: 40, mateEnergyMin: 0.7, mateHydrationMin: 0.55,
   mateEnergyCost: 0.35, mateCooldownSeconds: 55, mateRetrySeconds: 8,
-  maxAgeSeconds: 600, maxAgeVarianceSeconds: 120, corpseDespawnSeconds: 10,
+  maxAgeSeconds: 600, maxAgeVarianceSeconds: 120, corpseDespawnSeconds: 30,
   eatEnergyPerSec: 0.08, eatBiomassPerSec: 0.2,
   seekFoodBelow: 0.6, stopEatAt: 0.9, minFoodBiomass: 0.25,
   boidsRadius: 8, separationWeight: 1.2, alignmentWeight: 0.4, cohesionWeight: 0.35,
@@ -72,8 +74,9 @@ export const CARNIVORE: CarnivoreParams = {
   adultAgeSeconds: 55, mateEnergyMin: 0.7, mateHydrationMin: 0.55,
   mateEnergyCost: 0.5, mateCooldownSeconds: 100, mateRetrySeconds: 12,
   maxAgeSeconds: 900, maxAgeVarianceSeconds: 150, corpseDespawnSeconds: 12,
-  huntBelow: 0.68, huntCommitRadius: 40, territoryRadius: 45, territoryMax: 3, sprintSpeed: 8,
+  huntBelow: 0.68, huntCommitRadius: 40, territoryRadius: 55, territoryMax: 2, sprintSpeed: 8,
   staminaDrainPerSec: 1 / 12, staminaRegenPerSec: 1 / 20,
   killEnergyGain: 0.72, killDistance: 1.5,
+  scavengeRadius: 110, scavengeEnergyGain: 0.55,
   huntCooldownSeconds: 85, huntRetrySeconds: 8,
 };

@@ -3,7 +3,7 @@ import type { WorldConfig } from "./config";
 /** États de la FSM agent (architecture §7). */
 export type AgentState =
   "Wander" | "SeekWater" | "Drink" | "SeekFood" | "Eat"
-  | "SeekMate" | "Flee" | "Hunt" | "Dead";
+  | "SeekMate" | "Flee" | "Hunt" | "Scavenge" | "Dead";
 
 /** Une transition de la FSM, gardée en ring buffer pour l'inspecteur. */
 export interface Transition {

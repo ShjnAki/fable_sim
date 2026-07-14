@@ -123,6 +123,23 @@ function findNearestPrey(world: World, a: Agent): Agent | null {
   return preyBest;
 }
 
+/**
+ * Cadavre non consommé le plus proche dans scavengeRadius. Scan linéaire (pas
+ * la grille : elle exclut les morts) — n'est appelé que par un carnivore
+ * affamé sans proie, cas rare, coût négligeable.
+ */
+function findNearestCorpse(world: World, a: Agent): Agent | null {
+  let best: Agent | null = null;
+  let bestD2 = CARNIVORE.scavengeRadius ** 2;
+  for (const n of world.agents) {
+    if (n.state !== "Dead" || !Number.isFinite(n.deadForSeconds)) continue;
+    const dx = n.x - a.x, dz = n.z - a.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 < bestD2) { bestD2 = d2; best = n; }
+  }
+  return best;
+}
+
 // Perception de menace (herbivores) — état module, zéro alloc.
 let threatSeeker: Agent;
 let threatBest: Agent | null = null;
@@ -266,6 +283,13 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       const pc = CARNIVORE;
       const prey = findNearestPrey(world, a);
       if (!prey) {
+        // Aucune proie à portée : se rabattre sur une charogne (plancher d'énergie).
+        const corpse = findNearestCorpse(world, a);
+        if (corpse) {
+          applyTransition(a, "Scavenge", "charogne repérée", world.tickCount);
+          a.targetX = corpse.x; a.targetZ = corpse.z; a.hasTarget = true;
+          break;
+        }
         a.nextHuntAgeSeconds = a.ageSeconds + pc.huntRetrySeconds;
         applyTransition(a, "Wander", "aucune proie", world.tickCount);
         wander(a, rng, pc.maxSpeed, pc.maxForce, steer);
@@ -287,6 +311,25 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
         a.energy = Math.min(1, a.energy + pc.killEnergyGain);
         a.nextHuntAgeSeconds = a.ageSeconds + pc.huntCooldownSeconds;
         applyTransition(a, "Wander", "proie tuée", world.tickCount);
+      }
+      break;
+    }
+    case "Scavenge": {
+      const pc = CARNIVORE;
+      const corpse = findNearestCorpse(world, a);
+      if (!corpse) { // charogne consommée par un autre ou despawnée
+        a.nextHuntAgeSeconds = a.ageSeconds + pc.huntRetrySeconds;
+        applyTransition(a, "Wander", "charogne disparue", world.tickCount);
+        wander(a, rng, pc.maxSpeed, pc.maxForce, steer);
+        break;
+      }
+      arrive(a, corpse.x, corpse.z, 3, pc.maxSpeed, pc.maxForce, steer);
+      const sdx = corpse.x - a.x, sdz = corpse.z - a.z;
+      if (sdx * sdx + sdz * sdz < pc.killDistance * pc.killDistance) {
+        a.energy = Math.min(1, a.energy + pc.scavengeEnergyGain);
+        corpse.deadForSeconds = Infinity; // consommée : retirée au nettoyage du tick
+        a.nextHuntAgeSeconds = a.ageSeconds + pc.huntCooldownSeconds;
+        applyTransition(a, "Wander", "charogne mangée", world.tickCount);
       }
       break;
     }

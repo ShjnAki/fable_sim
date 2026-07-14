@@ -94,5 +94,42 @@ de design (décision à prendre avec Shin) :
    et documenter la dynamique comme « cycles amortis longs » plutôt que
    « équilibre permanent ».
 
-Config verrouillée actuelle : territoryRadius 45, territoryMax 3 (coexistence
-la plus longue observée, ~1 h avant bascule selon la graine).
+## Itération 21+ : charognage (choix de Shin) + verrouillage
+
+Ajout du charognage (état `Scavenge`) : un carnivore affamé sans proie à portée
+se rabat sur le cadavre non consommé le plus proche (scan linéaire, cas rare),
+gain d'énergie moindre qu'un kill (0.55 vs 0.72). Corpses prolongés à 30 s
+(herbivore) pour laisser le temps d'y accéder.
+
+**Effet mesuré, décisif :** le charognage *planchérise* la population de
+prédateurs (collapse repoussé de ~3300 s à ~4900-6400 s selon la graine). Avec
+la territorialité (cape le boom) ET le charognage (plancherise le bust), les
+deux espèces coexistent longtemps.
+
+**Résultat final (config verrouillée ci-dessous) :**
+- 10 min de sim : STABLE (garde-fou de la suite, `stability.test.ts`).
+- 20 min : STABLE, herbivores [60..325], carnivores [6..12] — **vraies
+  oscillations proie/prédateur d'amplitude raisonnable**.
+- Perf : 600 agents = 1,0 ms/tick (budget 3 ms tenu).
+
+**Limite honnête (règle CLAUDE.md n°5) :** sur ≥ 2 h, l'issue reste
+**seed-sensible** — le système est proche d'une bifurcation, sans attracteur
+ponctuel stable ; selon la graine, un cycle de grande amplitude peut encore
+tiper vers l'extinction d'une espèce entre ~1 h et ~2 h. ~26 itérations de
+paramètres + 2 mécanismes structurels (territorialité, charognage) ont amené
+une **coexistence métastable riche et visuellement démontrable** mais pas une
+stabilité permanente garantie sur toutes les graines. Un durcissement futur
+possible : proie-refuge par le troupeau (kill probabiliste selon la densité
+locale d'herbivores) pour amortir l'amplitude des cycles — à décider si Shin
+veut viser la stabilité stricte 2 h plutôt que la démonstration métastable.
+
+### Config verrouillée (2026-07-14)
+
+- `initialHerbivores: 60`, `initialCarnivores: 6`.
+- Herbivore : flee 8/14 boost 1.5 ; repro adulte 40 s, cooldown 55 s,
+  énergie min 0.7, coût 0.35 ; drink 0.35, hydDecay 1/130 ; corpse 30 s.
+- Carnivore : perception 90 (rencontre), `huntCommitRadius` 40 (chasse),
+  `territoryRadius` 55 / `territoryMax` 2 (densité-dépendance), sprint 8,
+  stamina 1/12, killGain 0.72, `scavengeRadius` 110 / `scavengeEnergyGain`
+  0.55, huntCooldown 85 ; repro adulte 55 s, cooldown 100 s, énergie 1/350,
+  maxAge 900.
