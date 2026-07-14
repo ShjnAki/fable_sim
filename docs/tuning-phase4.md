@@ -94,7 +94,44 @@ de design (décision à prendre avec Shin) :
    et documenter la dynamique comme « cycles amortis longs » plutôt que
    « équilibre permanent ».
 
-## Itération 21+ : charognage (choix de Shin) + verrouillage
+## Itération 27+ : refuge du troupeau (choix de Shin) — bistabilité
+
+Ajout de la « sécurité du troupeau » : quand un carnivore mord, la proie a une
+probabilité d'échapper proportionnelle au nombre de congénères proches (effet
+de confusion du prédateur, `preyRefugeRadius/PerNeighbor/MaxChance`, tirage
+`world.rng` → déterminisme conservé). But : amortir l'amplitude des cycles en
+protégeant les proies denses.
+
+**Effet observé, décisif mais à double tranchant :**
+- Le refuge *planchérise* bien les proies denses (les carnivores ne peuvent
+  plus exterminer un troupeau serré) → sur plusieurs graines l'extinction des
+  herbivores est repoussée près des 2 h (fable-1 : deux espèces vivantes à
+  t=6120 s / 102 min ; fable-3 a même EXPLOSÉ à t=7110 s — trop de proies).
+- MAIS le refuge est **densité-dépendant positif sous un seuil** : peu de
+  proies → pas de troupeau dense → pas de protection → les prédateurs les
+  achèvent. D'où une **bistabilité** : forte fécondité proie → explosion ;
+  faible fécondité → extinction. Pas de milieu stable robuste sur toutes les
+  graines.
+
+**Conclusion finale (règle CLAUDE.md n°5).** Quatre stabilisateurs
+densité-dépendants ont été implémentés et testés (territorialité = cap
+prédateur ; charognage = plancher prédateur ; refuge du troupeau = plancher
+proie ; capacité de charge eau/biomasse = plafond proie), plus ~30 itérations
+de paramètres. Le résultat est un **écosystème aux dynamiques proie/prédateur
+riches et une coexistence métastable longue** (jusqu'à ~2 h sur la graine par
+défaut), mais **pas une stabilité permanente garantie sur toutes les graines** :
+le système reste proche d'une bifurcation, avec des cycles de grande amplitude
+qui peuvent tiper vers l'explosion OU l'extinction selon la graine, entre ~15
+min et ~2 h. C'est le risque central du projet (architecture §13), fortement
+atténué mais non éliminé par le tuning + les amortisseurs.
+
+Pour aller plus loin (au-delà du périmètre raisonnable d'une phase) : un modèle
+à réponse fonctionnelle saturante explicite (type III) ou une capacité de
+charge prédateur indépendante des proies (territoire = nombre de sites de
+reproduction fixes) donnerait un attracteur ponctuel stable. À rediscuter si
+Shin veut la stabilité stricte plutôt que la démonstration métastable riche.
+
+## Itération 21-26 : charognage (choix de Shin) + verrouillage intermédiaire
 
 Ajout du charognage (état `Scavenge`) : un carnivore affamé sans proie à portée
 se rabat sur le cadavre non consommé le plus proche (scan linéaire, cas rare),

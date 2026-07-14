@@ -8,14 +8,18 @@
 ## État actuel
 
 **Phase en cours :** Phase 4 — Chaîne trophique
-**Statut :** mécaniques terminées (9 tâches du plan, 86 tests verts, typecheck
-OK, perf 600 agents = 1,0 ms). Carnivores, prédation, chasse à l'endurance,
-fuite, charognage, territorialité — tous livrés et visibles à l'écran. Équilibre
-Lotka-Volterra : **coexistence métastable riche** (STABLE 20 min, oscillations
-proie/prédateur d'amplitude raisonnable), mais la stabilité stricte ≥ 2 h reste
-seed-sensible (système proche d'une bifurcation — voir `docs/tuning-phase4.md`).
-**Validation visuelle par Shin en attente** + arbitrage sur le critère 2 h.
-**Dernier commit pertinent :** charognage + verrouillage config
+**Statut :** mécaniques terminées (9 tâches du plan + 2 stabilisateurs
+supplémentaires, 87 tests verts, typecheck OK, perf 600 agents = 1,0 ms).
+Carnivores, prédation, chasse à l'endurance, fuite, charognage, territorialité,
+**refuge du troupeau** (confusion du prédateur, ajout demandé par Shin) — tous
+livrés et visibles à l'écran. Équilibre Lotka-Volterra : **coexistence
+métastable riche** (jusqu'à ~2 h sur la graine par défaut), mais la stabilité
+stricte ≥ 2 h reste seed-sensible — le système est proche d'une bifurcation
+avec bistabilité (voir `docs/tuning-phase4.md`, journal de ~30 itérations).
+**Validation visuelle par Shin en attente** + arbitrage : accepter la
+coexistence métastable démontrable, ou viser la stabilité stricte (nécessite un
+5ᵉ mécanisme : réponse fonctionnelle saturante / sites de repro prédateur).
+**Dernier commit pertinent :** refuge du troupeau
 
 ---
 
@@ -162,13 +166,15 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
 - Livré : espèces `SpeciesParams`/`CarnivoreParams`, carnivores, prédation par
   poursuite à l'endurance (sprint + stamina + épuisement), fuite herbivore
   (vitesse liée à l'énergie → les faibles se font attraper), charognage,
-  territorialité prédatrice (densité-dépendance), harness headless
-  (`pnpm harness`) avec verdict et compteurs de morts. Client : mesh carnivore
-  distinct, couleurs Hunt/Flee/Scavenge, graphe à 2 courbes. 86 tests.
+  territorialité prédatrice, refuge du troupeau (4 amortisseurs
+  densité-dépendants), harness headless (`pnpm harness`) avec verdict et
+  compteurs de morts. Client : mesh carnivore distinct, couleurs
+  Hunt/Flee/Scavenge, graphe à 2 courbes. 87 tests.
 - **Point ouvert (honnêteté technique) :** l'équilibre tient une coexistence
-  métastable démontrable (oscillations visibles) mais pas une stabilité stricte
-  garantie ≥ 2 h sur toutes les graines — le système est proche d'une
-  bifurcation. Options de durcissement documentées dans `docs/tuning-phase4.md`.
+  métastable démontrable (oscillations riches, jusqu'à ~2 h sur la graine par
+  défaut) mais pas une stabilité stricte garantie ≥ 2 h sur toutes les graines
+  — bistabilité près d'une bifurcation. ~30 itérations documentées dans
+  `docs/tuning-phase4.md` ; 5ᵉ mécanisme proposé si stabilité stricte requise.
 
 ### Phase 5 — Interaction & observation
 - Statut : à venir
