@@ -29,6 +29,15 @@ export function createCameraControls(
   const limit = config.sizeMeters * 0.75;
 
   return {
+    /**
+     * Coupe la caméra libre pendant le mode jeu (Phase 6). Indispensable :
+     * OrbitControls capte la souris et se battrait avec le pointer lock de la
+     * caméra 3ᵉ personne.
+     */
+    setEnabled(on: boolean): void {
+      controls.enabled = on;
+      if (!on) pressed.clear();
+    },
     update(deltaSeconds: number): void {
       // Axes de déplacement projetés sur le plan du sol.
       camera.getWorldDirection(forward);
