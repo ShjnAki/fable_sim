@@ -11,7 +11,7 @@ export function createInspector(parent: HTMLElement) {
     update(d: AgentDetail | null): void {
       if (!d) { parent.textContent = "aucun agent vivant"; return; }
       parent.textContent = [
-        `herbivore #${d.id} — ${d.state}`,
+        `${d.species} #${d.id} — ${d.state}`,
         `énergie     ${bar(d.energy)}`,
         `hydratation ${bar(d.hydration)}`,
         `âge ${d.ageSeconds.toFixed(0)} s   pos (${d.x.toFixed(0)}, ${d.z.toFixed(0)})`,
