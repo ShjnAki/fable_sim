@@ -2,7 +2,9 @@ import {
   CARNIVORE, DEFAULT_WORLD_CONFIG, HERBIVORE, createRng,
   type Rng, type TickSnapshot, type WorldConfig,
 } from "@eco/shared";
-import { createCarnivore, createHerbivore, findSpawnCells, paramsOf, type Agent } from "./agent";
+import {
+  createCarnivore, createHerbivore, findCarnivoreDens, findScatteredCells, paramsOf, type Agent,
+} from "./agent";
 import { tickAgent } from "./agentTick";
 import { createBiomass, regrowBiomass, type BiomassField } from "./biomass";
 import { createSpatialGrid, rebuildGrid, type SpatialGrid } from "./spatialGrid";
@@ -28,21 +30,32 @@ export function createWorld(overrides: Partial<WorldConfig> = {}): World {
   const config: WorldConfig = { ...DEFAULT_WORLD_CONFIG, ...overrides };
   const terrain = generateTerrain(config);
   const rng = createRng(config.seed + ":world");
-  const spawns = findSpawnCells(
-    terrain, config, config.initialHerbivores + config.initialCarnivores,
-  );
-  const agents = spawns.map((s, k) => {
-    const isHerb = k < config.initialHerbivores;
-    const a = isHerb
-      ? createHerbivore(k + 1, s.x, s.z, rng)
-      : createCarnivore(k + 1, s.x, s.z, rng);
-    // Les fondateurs sont adultes, premiers essais étalés (pas de rush au tick 1).
-    const p = isHerb ? HERBIVORE : CARNIVORE;
-    a.ageSeconds = p.adultAgeSeconds;
-    a.nextMateAgeSeconds = a.ageSeconds + rng() * p.mateCooldownSeconds;
-    if (!isHerb) a.nextHuntAgeSeconds = a.ageSeconds + rng() * 20;
-    return a;
-  });
+  const agents: Agent[] = [];
+  let nextId = 1;
+
+  // Herbivores : dispersés sur toute l'île → chaque clan de prédateurs a des
+  // proies à proximité dès le départ, et l'île entière est peuplée.
+  for (const s of findScatteredCells(terrain, config, config.initialHerbivores)) {
+    const a = createHerbivore(nextId++, s.x, s.z, rng);
+    a.ageSeconds = HERBIVORE.adultAgeSeconds;
+    a.nextMateAgeSeconds = a.ageSeconds + rng() * HERBIVORE.mateCooldownSeconds;
+    agents.push(a);
+  }
+
+  // Carnivores : répartis en clans autour de tanières distinctes (montagne,
+  // plage, terre…). Ils se rallient à leur tanière pour se reproduire, mais
+  // rayonnent en battue vers les proies.
+  const dens = findCarnivoreDens(terrain, config, Math.max(1, config.carnivoreClans));
+  for (let c = 0; c < config.initialCarnivores; c++) {
+    const clan = c % dens.length;
+    const den = dens[clan]!;
+    const a = createCarnivore(nextId++, den.x + (rng() - 0.5) * 20, den.z + (rng() - 0.5) * 20, rng);
+    a.clanId = clan; a.denX = den.x; a.denZ = den.z;
+    a.ageSeconds = CARNIVORE.adultAgeSeconds;
+    a.nextMateAgeSeconds = a.ageSeconds + rng() * CARNIVORE.mateCooldownSeconds;
+    a.nextHuntAgeSeconds = a.ageSeconds + rng() * 20;
+    agents.push(a);
+  }
   return {
     config,
     terrain,

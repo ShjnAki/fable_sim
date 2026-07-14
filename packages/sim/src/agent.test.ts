@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { CARNIVORE, DEFAULT_WORLD_CONFIG, HERBIVORE, createRng } from "@eco/shared";
-import { createCarnivore, createHerbivore, findSpawnCell, findSpawnCells, paramsOf } from "./agent";
+import {
+  createCarnivore, createHerbivore, findCarnivoreDens, findSpawnCell, findSpawnCells, paramsOf,
+} from "./agent";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
 import { ZONE_GRASS, generateTerrain } from "./terrain";
 
@@ -62,6 +64,23 @@ describe("carnivore", () => {
     const c = createCarnivore(2, 0, 0, createRng("c"));
     expect(paramsOf(h)).toBe(HERBIVORE);
     expect(paramsOf(c)).toBe(CARNIVORE);
+  });
+});
+
+describe("findCarnivoreDens", () => {
+  it("retourne k tanières distinctes sur l'herbe, bien réparties", () => {
+    const t = generateTerrain(cfg);
+    const dens = findCarnivoreDens(t, cfg, 3);
+    expect(dens.length).toBe(3);
+    for (const d of dens) {
+      expect(t.zones[cellIndexAt(cfg, d.x, d.z)]).toBe(ZONE_GRASS);
+    }
+    // Deux tanières ne se superposent pas (réparties sur l'île).
+    for (let i = 0; i < dens.length; i++) {
+      for (let j = i + 1; j < dens.length; j++) {
+        expect(Math.hypot(dens[i]!.x - dens[j]!.x, dens[i]!.z - dens[j]!.z)).toBeGreaterThan(40);
+      }
+    }
   });
 });
 

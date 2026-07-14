@@ -75,12 +75,18 @@ describe("un agent qui vit", () => {
 describe("chasse", () => {
   /** Monde 1 proie + 1 chasseur affamé, positions et états contrôlés. */
   function huntWorld(preyEnergy: number, gap: number) {
-    // Terrain sans rivières : test de mécanique de chasse, pas de terrain.
-    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 1, riverWidth: 0 });
+    // Terrain neutre (pas de rivières, pas d'eau) : on teste la mécanique de
+    // chasse, pas la navigation autour de l'eau.
+    const w = createWorld({
+      initialHerbivores: 1, initialCarnivores: 1, carnivoreClans: 1,
+      riverWidth: 0, waterLevel: -100,
+    });
     const prey = w.agents.find((a) => a.species === "herbivore")!;
     const wolf = w.agents.find((a) => a.species === "carnivore")!;
+    prey.x = 0; prey.z = 0;
     prey.energy = preyEnergy; prey.hydration = 1;
-    wolf.x = prey.x - gap; wolf.z = prey.z;
+    wolf.x = -gap; wolf.z = 0;
+    wolf.denX = -gap; wolf.denZ = 0; // tanière sur place : pas de rappel parasite
     wolf.energy = 0.5; wolf.hydration = 1; wolf.stamina = 1;
     wolf.nextHuntAgeSeconds = 0; wolf.nextMateAgeSeconds = 1e9;
     return { w, prey, wolf };
@@ -88,7 +94,13 @@ describe("chasse", () => {
 
   it("attrape une proie affamée (lente) : kill, gain, digestion", () => {
     const { w, prey, wolf } = huntWorld(0.15, 8);
-    for (let t = 0; t < 300 && prey.state !== "Dead"; t++) tickWorld(w);
+    const px = prey.x, pz = prey.z;
+    for (let t = 0; t < 300 && prey.state !== "Dead"; t++) {
+      // Proie affamée maintenue sur place : on teste la chasse, pas sa fuite
+      // vers l'herbe (elle est lente car affamée — c'est ça qu'on vérifie).
+      prey.x = px; prey.z = pz; prey.energy = 0.15;
+      tickWorld(w);
+    }
     expect(prey.state).toBe("Dead");
     expect(prey.transitions.at(-1)!.cause).toBe("prédation");
     expect(wolf.energy).toBeGreaterThan(0.7); // 0.5 + 0.55 borné, moins la décroissance
@@ -139,16 +151,20 @@ describe("chasse", () => {
   });
 
   it("charogne : un carnivore affamé sans proie mange un cadavre proche", () => {
-    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 1, riverWidth: 0 });
+    const w = createWorld({
+      initialHerbivores: 1, initialCarnivores: 1, carnivoreClans: 1,
+      riverWidth: 0, waterLevel: -100,
+    });
     const prey = w.agents.find((a) => a.species === "herbivore")!;
     const wolf = w.agents.find((a) => a.species === "carnivore")!;
-    // La proie vivante est loin (hors engagement) ; un cadavre est tout près.
-    prey.x = wolf.x + 300; prey.z = wolf.z;
-    prey.x = Math.max(-200, Math.min(200, prey.x));
+    // Le loup au centre, sa proie hors de vue, un cadavre tout près.
+    wolf.x = 0; wolf.z = 0;
+    wolf.denX = 0; wolf.denZ = 0; // tanière ici → pas de rappel parasite
+    prey.x = 240; prey.z = 0;     // hors perception (170 m)
     wolf.energy = 0.4; wolf.hydration = 1; wolf.nextHuntAgeSeconds = 0;
     wolf.nextMateAgeSeconds = 1e9;
     // Un cadavre à 10 m du loup.
-    const corpse = createCarnivore(77, wolf.x + 10, wolf.z, w.rng);
+    const corpse = createCarnivore(77, 10, 0, w.rng);
     corpse.state = "Dead"; corpse.deadForSeconds = 1;
     w.agents.push(corpse);
     const e0 = wolf.energy;
@@ -158,6 +174,55 @@ describe("chasse", () => {
     expect(wolf.transitions.some((tr) => tr.to === "Scavenge")).toBe(true);
     expect(wolf.transitions.some((tr) => tr.cause === "charogne mangée")).toBe(true);
     expect(wolf.energy).toBeGreaterThan(e0);
+  });
+
+  it("les carnivores fondateurs sont répartis en clans avec tanière", () => {
+    const w = createWorld({ initialHerbivores: 10, initialCarnivores: 6, carnivoreClans: 3 });
+    const carn = w.agents.filter((a) => a.species === "carnivore");
+    const clans = new Set(carn.map((a) => a.clanId));
+    expect(clans.size).toBe(3); // les 3 clans sont peuplés
+    for (const c of carn) {
+      expect(c.denX !== 0 || c.denZ !== 0).toBe(true); // tanière assignée
+    }
+  });
+
+  it("un carnivore repu loin de sa tanière rentre vers elle", () => {
+    // waterLevel très bas : aucun obstacle d'eau, on teste le rappel seul.
+    const w = createWorld({
+      initialHerbivores: 0, initialCarnivores: 1, carnivoreClans: 1,
+      riverWidth: 0, waterLevel: -100,
+    });
+    const wolf = w.agents[0]!;
+    wolf.x = 0; wolf.z = 0;
+    // Tanière nettement au-delà du territoire → il doit rentrer.
+    wolf.denX = CARNIVORE.homeRange + 60; wolf.denZ = 0;
+    wolf.nextMateAgeSeconds = 1e9; // pas de repro → reste en Wander
+    wolf.state = "Wander";
+    const d0 = Math.hypot(wolf.denX - wolf.x, wolf.denZ - wolf.z);
+    for (let t = 0; t < 700; t++) {
+      wolf.energy = 0.95; wolf.hydration = 0.95; // le maintenir repu → Wander
+      tickWorld(w);
+    }
+    const d1 = Math.hypot(wolf.denX - wolf.x, wolf.denZ - wolf.z);
+    expect(d1).toBeLessThan(d0); // il s'est rapproché…
+    // …et il regagne son territoire (il n'a pas besoin de rentrer au terrier même).
+    expect(d1).toBeLessThanOrEqual(CARNIVORE.homeRange + 5);
+  });
+
+  it("le petit d'un carnivore hérite du clan et de la tanière", () => {
+    const w = createWorld({ initialHerbivores: 0, initialCarnivores: 2, carnivoreClans: 1 });
+    const a = w.agents[0]!, b = w.agents[1]!;
+    b.x = a.x + 1; b.z = a.z;
+    for (const ag of [a, b]) {
+      ag.energy = 0.95; ag.hydration = 0.95; ag.nextMateAgeSeconds = 0;
+      ag.nextHuntAgeSeconds = 1e9;
+    }
+    a.clanId = 0; a.denX = a.x; a.denZ = a.z;
+    for (let t = 0; t < 120 && w.agents.length === 2; t++) tickWorld(w);
+    expect(w.agents.length).toBe(3);
+    const child = w.agents[2]!;
+    expect(child.clanId).toBe(a.clanId);
+    expect(child.denX).toBe(a.denX);
   });
 
   it("déterminisme complet à deux espèces", () => {
@@ -207,9 +272,16 @@ describe("fuite", () => {
 
 describe("reproduction carnivore", () => {
   it("deux carnivores éligibles produisent un carnivore", () => {
-    const w = createWorld({ initialHerbivores: 0, initialCarnivores: 2 });
+    // Même clan : deux carnivores de clans différents rentrent chacun à leur
+    // tanière et ne s'apparient pas (comportement voulu).
+    const w = createWorld({
+      initialHerbivores: 0, initialCarnivores: 2, carnivoreClans: 1,
+      riverWidth: 0, waterLevel: -100,
+    });
     const a = w.agents[0]!, b = w.agents[1]!;
-    b.x = a.x + 1; b.z = a.z;
+    a.x = 0; a.z = 0;
+    b.x = 1; b.z = 0;
+    a.denX = 0; a.denZ = 0; b.denX = 0; b.denZ = 0;
     for (const ag of [a, b]) {
       ag.energy = 0.9; ag.hydration = 0.9; ag.nextMateAgeSeconds = 0;
       ag.nextHuntAgeSeconds = 1e9;

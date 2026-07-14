@@ -55,14 +55,16 @@ export interface CarnivoreParams extends SpeciesParams {
   preyRefugeMaxChance: number;   // plafond de la proba d'échappement
   huntCooldownSeconds: number;   // digestion après un kill
   huntRetrySeconds: number;      // délai après un abandon (épuisé / aucune proie)
+  homeRange: number;             // m — au-delà, un carnivore repu rentre vers sa tanière
+  homingWeight: number;          // force du rappel vers la tanière (0..1 de maxSpeed)
 }
 
 export const HERBIVORE: HerbivoreParams = {
   maxSpeed: 4, maxForce: 6, perceptionRadius: 60,
   energyDecayPerSec: 1 / 150, hydrationDecayPerSec: 1 / 130, drinkPerSec: 0.35,
   criticalNeed: 0.25, seekWaterBelow: 0.5, stopDrinkAt: 0.95,
-  adultAgeSeconds: 44, mateEnergyMin: 0.72, mateHydrationMin: 0.58,
-  mateEnergyCost: 0.37, mateCooldownSeconds: 65, mateRetrySeconds: 8,
+  adultAgeSeconds: 46, mateEnergyMin: 0.74, mateHydrationMin: 0.58,
+  mateEnergyCost: 0.38, mateCooldownSeconds: 66, mateRetrySeconds: 8,
   maxAgeSeconds: 600, maxAgeVarianceSeconds: 120, corpseDespawnSeconds: 30,
   eatEnergyPerSec: 0.08, eatBiomassPerSec: 0.2,
   seekFoodBelow: 0.6, stopEatAt: 0.9, minFoodBiomass: 0.25,
@@ -77,10 +79,14 @@ export const CARNIVORE: CarnivoreParams = {
   adultAgeSeconds: 55, mateEnergyMin: 0.62, mateHydrationMin: 0.55,
   mateEnergyCost: 0.5, mateCooldownSeconds: 70, mateRetrySeconds: 12,
   maxAgeSeconds: 900, maxAgeVarianceSeconds: 150, corpseDespawnSeconds: 12,
-  huntBelow: 0.68, huntCommitRadius: 40, territoryRadius: 55, territoryMax: 2, sprintSpeed: 8,
+  // territoryMax élevé : les clans (tanières + rappel) régulent déjà la densité
+  // spatiale ; un cap serré ferait que les membres d'un même clan se
+  // déclarent mutuellement « crowded » et ne se reproduiraient jamais.
+  huntBelow: 0.68, huntCommitRadius: 40, territoryRadius: 55, territoryMax: 12, sprintSpeed: 8,
   staminaDrainPerSec: 1 / 12, staminaRegenPerSec: 1 / 20,
   killEnergyGain: 0.72, killDistance: 1.5,
   scavengeRadius: 110, scavengeEnergyGain: 0.55,
   preyRefugeRadius: 6, preyRefugePerNeighbor: 0.09, preyRefugeMaxChance: 0.6,
   huntCooldownSeconds: 85, huntRetrySeconds: 8,
+  homeRange: 220, homingWeight: 0.45,
 };

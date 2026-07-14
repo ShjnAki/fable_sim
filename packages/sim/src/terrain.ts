@@ -64,6 +64,7 @@ export function generateTerrain(config: WorldConfig): TerrainData {
   if (config.riverWidth > 0) {
     const meander = createNoise2D(createRng(config.seed + ":rivers"));
     const w = config.riverWidth;
+    const bankW = w * 2.5; // berges en pente douce : franchissables par les agents
     for (let iz = 0; iz <= n; iz++) {
       for (let ix = 0; ix <= n; ix++) {
         const x = (ix / n) * size - half;
@@ -71,11 +72,23 @@ export function generateTerrain(config: WorldConfig): TerrainData {
         const cz = config.riverMeander * meander(x * 0.012, 7.3);  // rivière ~E-O
         const cx = config.riverMeander * meander(z * 0.012, 19.1); // rivière ~N-S
         const d = Math.min(Math.abs(z - cz), Math.abs(x - cx));
+        if (d >= w + bankW) continue;
+        const idx = iz * (n + 1) + ix;
+        const ground = heights[idx]!;
         if (d < w) {
-          const t = d / w;                            // 0 au centre, 1 à la berge
+          // Lit du chenal, sous le niveau de l'eau.
+          const t = d / w;
           const bed = config.waterLevel - config.riverDepth * (1 - t * t);
-          const idx = iz * (n + 1) + ix;
-          if (heights[idx]! > bed) heights[idx] = bed;
+          if (ground > bed) heights[idx] = bed;
+        } else {
+          // Berge : raccord progressif du bord de l'eau vers le terrain naturel.
+          // Sans ça, la coupe laisse une falaise verticale que les agents ne
+          // peuvent pas franchir (ils meurent de soif au bord de l'eau).
+          const t = (d - w) / bankW;                 // 0 au bord de l'eau, 1 au terrain
+          const s = t * t * (3 - 2 * t);             // smoothstep
+          const lip = config.waterLevel + 0.5;       // juste au-dessus de l'eau
+          const bank = lip + (ground - lip) * s;
+          if (ground > bank) heights[idx] = bank;
         }
       }
     }

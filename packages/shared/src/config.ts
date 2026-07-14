@@ -37,6 +37,8 @@ export interface WorldConfig {
   initialHerbivores: number;
   /** Nombre de carnivores au démarrage du monde. */
   initialCarnivores: number;
+  /** Nombre de clans de carnivores (tanières réparties sur l'île). */
+  carnivoreClans: number;
 }
 
 export const DEFAULT_WORLD_CONFIG: WorldConfig = {
@@ -49,7 +51,9 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   riverWidth: 11,
   riverDepth: 4,
   riverMeander: 26,
-  bridgeWidth: 7,
+  // Pont désactivé : les berges en pente douce rendent les rivières
+  // franchissables à gué — plus naturel qu'une passerelle plate (retour Shin).
+  bridgeWidth: 0,
   bridgeReach: 60,
   bridgeHeight: 3,
   rockSlope: 0.7,
@@ -58,5 +62,6 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   dayLengthSeconds: 600,
   tickRateHz: 20,
   initialHerbivores: 60,
-  initialCarnivores: 6,
+  initialCarnivores: 12,
+  carnivoreClans: 3,
 };

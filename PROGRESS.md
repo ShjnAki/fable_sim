@@ -51,6 +51,13 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
 
 ---
 
+## À retravailler (demandes de Shin)
+
+- **Le pont central ne fait pas naturel** (bande droite et plate au-dessus de
+  l'eau). À remplacer avant la Phase 5 par quelque chose d'organique : arche
+  rocheuse érodée, resserrement de méandre, ou gué de rochers émergés.
+  Paramètres actuels : `bridgeWidth/bridgeReach/bridgeHeight` (config).
+
 ## Points fragiles connus
 
 - **Getters statiques de `SimHost` synchrones** — devront devenir asynchrones au

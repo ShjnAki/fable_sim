@@ -109,10 +109,16 @@ describe("rivières", () => {
   });
 });
 
-describe("pont central", () => {
-  it("offre une terre franchissable au-dessus de l'eau au centre", () => {
+describe("berges des rivières", () => {
+  it("sont en pente douce : franchissables, pas des falaises", () => {
     const t = generateTerrain(cfg);
-    expect(sampleHeight(t, cfg, 0, 0)).toBeGreaterThanOrEqual(cfg.waterLevel);
+    // Le long d'une traversée de rivière, la pente reste modérée partout :
+    // sinon les agents restent bloqués au bord de l'eau (et meurent de soif).
+    let maxSlope = 0;
+    for (let z = -250; z <= 250; z += 2) {
+      maxSlope = Math.max(maxSlope, slopeAt(t, cfg, 40, z));
+    }
+    expect(maxSlope).toBeLessThan(1.5); // pas d'à-pic vertical
   });
 });
 

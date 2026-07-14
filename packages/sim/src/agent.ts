@@ -34,6 +34,10 @@ export interface Agent {
   threatZ: number;
   /** Territoire saturé de congénères — bloque la reproduction (carnivores). */
   crowded: boolean;
+  /** Clan (carnivores) et position de la tanière — rallient là pour se reproduire. */
+  clanId: number;
+  denX: number;
+  denZ: number;
   wanderAngle: number;
   hasTarget: boolean; targetX: number; targetZ: number;
   memory: {
@@ -57,6 +61,7 @@ function createAgent(
     nextMateAgeSeconds: 0,
     stamina: 1, nextHuntAgeSeconds: 0,
     hasThreat: false, threatX: 0, threatZ: 0, crowded: false,
+    clanId: 0, denX: 0, denZ: 0,
     hasTarget: false, targetX: 0, targetZ: 0,
     memory: { hasWater: false, waterX: 0, waterZ: 0, hasFood: false, foodX: 0, foodZ: 0 },
     transitions: [],
@@ -73,6 +78,91 @@ export function createCarnivore(id: number, x: number, z: number, rng: Rng): Age
 
 export function paramsOf(a: Agent): SpeciesParams {
   return a.species === "herbivore" ? HERBIVORE : CARNIVORE;
+}
+
+/**
+ * n cellules d'herbe dispersées sur toute l'île (échantillonnage du point le
+ * plus éloigné). Répartit les proies partout dès le départ → chaque clan de
+ * prédateurs a de quoi chasser, et l'île entière est occupée.
+ */
+export function findScatteredCells(
+  terrain: TerrainData, config: WorldConfig, n: number,
+): { x: number; z: number }[] {
+  if (n <= 0) return [];
+  const grass: number[] = [];
+  for (let i = 0; i < terrain.zones.length; i++) {
+    if (terrain.zones[i] === ZONE_GRASS) grass.push(i);
+  }
+  if (grass.length === 0) return [];
+  const cx = (i: number) => cellCenterX(config, i);
+  const cz = (i: number) => cellCenterZ(config, i);
+  // Échantillonnage du point le plus éloigné, en gardant pour chaque cellule sa
+  // distance au plus proche point déjà pris (O(n × grass) au lieu de O(n² × grass)).
+  const picks = [grass[0]!]; // graine déterministe : première cellule d'herbe
+  const nearest = new Float64Array(grass.length);
+  for (let g = 0; g < grass.length; g++) {
+    const dx = cx(grass[g]!) - cx(picks[0]!), dz = cz(grass[g]!) - cz(picks[0]!);
+    nearest[g] = dx * dx + dz * dz;
+  }
+  while (picks.length < n && picks.length < grass.length) {
+    let bestG = -1, bestD = -1;
+    for (let g = 0; g < grass.length; g++) {
+      if (nearest[g]! > bestD) { bestD = nearest[g]!; bestG = g; }
+    }
+    if (bestG < 0) break;
+    const chosen = grass[bestG]!;
+    picks.push(chosen);
+    for (let g = 0; g < grass.length; g++) {
+      const dx = cx(grass[g]!) - cx(chosen), dz = cz(grass[g]!) - cz(chosen);
+      const d2 = dx * dx + dz * dz;
+      if (d2 < nearest[g]!) nearest[g] = d2;
+    }
+  }
+  return picks.map((i) => ({ x: cx(i), z: cz(i) }));
+}
+
+/**
+ * k tanières de carnivores réparties sur les RIVES (herbe au bord de l'eau) :
+ * les proies s'y rassemblent (herbe + point d'eau), donc les clans y restent
+ * nourris tout en occupant des régions distinctes de l'île. Échantillonnage du
+ * point le plus éloigné à partir de la rive la plus au nord — déterministe.
+ * (Choix assumé : tanières riveraines plutôt que sommets arides, sinon un clan
+ * de montagne meurt de faim faute de proies — cf. docs/tuning-phase4.md.)
+ */
+export function findCarnivoreDens(
+  terrain: TerrainData, config: WorldConfig, k: number,
+): { x: number; z: number }[] {
+  if (k <= 0) return [];
+  // Habitat des tanières : cellules de rive si possible, sinon herbe.
+  let cells: number[] = Array.from(terrain.shoreCells);
+  if (cells.length === 0) {
+    cells = [];
+    for (let i = 0; i < terrain.zones.length; i++) {
+      if (terrain.zones[i] === ZONE_GRASS) cells.push(i);
+    }
+  }
+  if (cells.length === 0) return [];
+  const cx = (i: number) => cellCenterX(config, i);
+  const cz = (i: number) => cellCenterZ(config, i);
+  // Graine déterministe : la cellule la plus au nord (min z).
+  let first = cells[0]!;
+  for (const i of cells) if (cz(i) < cz(first)) first = i;
+  const picks = [first];
+  // Suivantes : la rive la plus loin de toutes les tanières déjà prises.
+  while (picks.length < k) {
+    let best = -1, bestD = -1;
+    for (const i of cells) {
+      let md = Infinity;
+      for (const p of picks) {
+        const dx = cx(i) - cx(p), dz = cz(i) - cz(p);
+        md = Math.min(md, dx * dx + dz * dz);
+      }
+      if (md > bestD) { bestD = md; best = i; }
+    }
+    if (best < 0) break;
+    picks.push(best);
+  }
+  return picks.map((i) => ({ x: cx(i), z: cz(i) }));
 }
 
 /** Cellule d'herbe la plus proche du centre de l'île — point de spawn stable. */

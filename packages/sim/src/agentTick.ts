@@ -114,13 +114,16 @@ function considerPrey(n: Agent): void {
   const d2 = dx * dx + dz * dz;
   if (d2 < preyBestD2) { preyBestD2 = d2; preyBest = n; }
 }
-function findNearestPrey(world: World, a: Agent): Agent | null {
+/** Proie la plus proche dans un rayon donné (engagement ou traque). */
+function findNearestPreyWithin(world: World, a: Agent, r: number): Agent | null {
   preySeeker = a; preyBest = null;
-  // Engagement à courte portée : sprinter une proie lointaine épuise pour rien.
-  const r = CARNIVORE.huntCommitRadius;
   preyBestD2 = r * r;
   forEachNeighbor(world.grid, a.x, a.z, r, considerPrey);
   return preyBest;
+}
+/** Proie engageable : à portée de sprint (au-delà, la course épuise pour rien). */
+function findNearestPrey(world: World, a: Agent): Agent | null {
+  return findNearestPreyWithin(world, a, CARNIVORE.huntCommitRadius);
 }
 
 /**
@@ -187,6 +190,9 @@ function birth(world: World, a: Agent, mate: Agent): void {
     (a.z + mate.z) / 2 + (world.rng() - 0.5) * 2,
     world.rng,
   );
+  if (a.species === "carnivore") { // le petit hérite du clan et de la tanière
+    child.clanId = a.clanId; child.denX = a.denX; child.denZ = a.denZ;
+  }
   world.agents.push(child);
   a.energy = Math.max(0.05, a.energy - p.mateEnergyCost);
   mate.energy = Math.max(0.05, mate.energy - p.mateEnergyCost);
@@ -239,8 +245,18 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
 
   switch (a.state) {
     case "Wander":
-      wander(a, rng, p.maxSpeed, p.maxForce, steer);
-      boidsMode = 2;
+      // Le rappel au territoire est un LUXE : un carnivore ne rentre que bien
+      // repu et désaltéré. Sinon il erre et chasse librement, où que soient les
+      // proies — sinon la tanière l'affame (il tourne autour d'un gibier épuisé).
+      if (a.species === "carnivore"
+          && a.energy > CARNIVORE.mateEnergyMin && a.hydration > CARNIVORE.mateHydrationMin
+          && Math.hypot(a.denX - a.x, a.denZ - a.z) > CARNIVORE.homeRange) {
+        seek(a, a.denX, a.denZ,
+          p.maxSpeed * CARNIVORE.homingWeight + p.maxSpeed * 0.5, p.maxForce, steer);
+      } else {
+        wander(a, rng, p.maxSpeed, p.maxForce, steer);
+        if (a.species === "herbivore") boidsMode = 2;
+      }
       break;
     case "SeekWater": {
       boidsMode = 1;
@@ -296,7 +312,15 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       const pc = CARNIVORE;
       const prey = findNearestPrey(world, a);
       if (!prey) {
-        // Aucune proie à portée : se rabattre sur une charogne (plancher d'énergie).
+        // Rien à portée de sprint : traquer (au trot, sans vider la stamina)
+        // une proie repérée plus loin — c'est la battue, elle mène le clan
+        // hors de sa tanière vers les troupeaux.
+        const spotted = findNearestPreyWithin(world, a, pc.perceptionRadius);
+        if (spotted) {
+          seek(a, spotted.x, spotted.z, pc.maxSpeed, pc.maxForce, steer);
+          break; // reste en Hunt : il approche
+        }
+        // Aucune proie en vue : se rabattre sur une charogne (plancher d'énergie).
         const corpse = findNearestCorpse(world, a);
         if (corpse) {
           applyTransition(a, "Scavenge", "charogne repérée", world.tickCount);
