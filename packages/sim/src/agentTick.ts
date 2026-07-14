@@ -1,11 +1,11 @@
 import {
-  CARNIVORE, HERBIVORE,
+  CARNIVORE, HERBIVORE, HUMAN,
   type AgentState, type CarnivoreParams, type HerbivoreParams, type Rng,
 } from "@eco/shared";
 import { createCarnivore, createHerbivore, paramsOf, type Agent } from "./agent";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
 import { accumulateBoids } from "./boids";
-import { decideCarnivore, decideHerbivore, isMateEligible } from "./decide";
+import { decideCarnivore, decideHerbivore, decideHuman, isMateEligible } from "./decide";
 import { forEachNeighbor } from "./spatialGrid";
 import { arrive, seek, wander, type SteerOut } from "./steering";
 import { ZONE_GRASS, sampleHeight } from "./terrain";
@@ -109,7 +109,13 @@ let preySeeker: Agent;
 let preyBest: Agent | null = null;
 let preyBestD2 = 0;
 function considerPrey(n: Agent): void {
-  if (n.species !== "herbivore") return;
+  // L'humain chasse tout animal (herbivore ET carnivore) ; le carnivore, seulement
+  // les herbivores.
+  if (preySeeker.species === "human") {
+    if (n.species === "human" || n.state === "Dead") return;
+  } else if (n.species !== "herbivore") {
+    return;
+  }
   const dx = n.x - preySeeker.x, dz = n.z - preySeeker.z;
   const d2 = dx * dx + dz * dz;
   if (d2 < preyBestD2) { preyBestD2 = d2; preyBest = n; }
@@ -123,7 +129,7 @@ function findNearestPreyWithin(world: World, a: Agent, r: number): Agent | null 
 }
 /** Proie engageable : à portée de sprint (au-delà, la course épuise pour rien). */
 function findNearestPrey(world: World, a: Agent): Agent | null {
-  return findNearestPreyWithin(world, a, CARNIVORE.huntCommitRadius);
+  return findNearestPreyWithin(world, a, (paramsOf(a) as CarnivoreParams).huntCommitRadius);
 }
 
 /**
@@ -133,7 +139,7 @@ function findNearestPrey(world: World, a: Agent): Agent | null {
  */
 function findNearestCorpse(world: World, a: Agent): Agent | null {
   let best: Agent | null = null;
-  let bestD2 = CARNIVORE.scavengeRadius ** 2;
+  let bestD2 = (paramsOf(a) as CarnivoreParams).scavengeRadius ** 2;
   for (const n of world.agents) {
     if (n.state !== "Dead" || !Number.isFinite(n.deadForSeconds)) continue;
     const dx = n.x - a.x, dz = n.z - a.z;
@@ -183,7 +189,8 @@ let threatSeeker: Agent;
 let threatBest: Agent | null = null;
 let threatBestD2 = 0;
 function considerThreat(n: Agent): void {
-  if (n.species !== "carnivore") return;
+  // Menace pour un herbivore : les prédateurs (carnivores ET humains).
+  if (n.species !== "carnivore" && n.species !== "human") return;
   const dx = n.x - threatSeeker.x, dz = n.z - threatSeeker.z;
   const d2 = dx * dx + dz * dz;
   if (d2 < threatBestD2) { threatBestD2 = d2; threatBest = n; }
@@ -264,6 +271,9 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
     // Endormi : perception de menace réduite → le prédateur approche au ras.
     perceiveThreat(world, a, HERBIVORE, a.state === "Sleep" ? HERBIVORE.sleepWakeRadius : undefined);
     d = decideHerbivore(a, HERBIVORE);
+  } else if (a.species === "human") {
+    if (a.state !== "Hunt") a.stamina = Math.min(1, a.stamina + HUMAN.staminaRegenPerSec * dt);
+    d = decideHuman(a, HUMAN); // apex : pas de territoire, pas de reproduction
   } else {
     if (a.state !== "Hunt") {
       a.stamina = Math.min(1, a.stamina + CARNIVORE.staminaRegenPerSec * dt);
@@ -352,7 +362,7 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       break;
     }
     case "Hunt": {
-      const pc = CARNIVORE;
+      const pc = paramsOf(a) as CarnivoreParams;
       const prey = findNearestPrey(world, a);
       if (!prey) {
         // Faim critique : une charogne SÛRE vaut mieux qu'une proie lointaine
@@ -435,7 +445,7 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       break;
     }
     case "Scavenge": {
-      const pc = CARNIVORE;
+      const pc = paramsOf(a) as CarnivoreParams;
       const corpse = findNearestCorpse(world, a);
       if (!corpse) { // charogne consommée par un autre ou despawnée
         a.nextHuntAgeSeconds = a.ageSeconds + pc.huntRetrySeconds;

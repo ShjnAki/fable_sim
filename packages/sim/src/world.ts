@@ -1,9 +1,10 @@
 import {
-  CARNIVORE, DEFAULT_WORLD_CONFIG, HERBIVORE, createRng,
+  CARNIVORE, DEFAULT_WORLD_CONFIG, HERBIVORE, HUMAN, createRng,
   type Rng, type TickSnapshot, type WorldConfig,
 } from "@eco/shared";
 import {
-  createCarnivore, createHerbivore, findCarnivoreDens, findScatteredCells, paramsOf, type Agent,
+  createCarnivore, createHerbivore, createHuman,
+  findCarnivoreDens, findScatteredCells, paramsOf, type Agent,
 } from "./agent";
 import { tickAgent } from "./agentTick";
 import { cellIndexAt, createBiomass, regrowBiomass, type BiomassField } from "./biomass";
@@ -69,6 +70,13 @@ export function createWorld(overrides: Partial<WorldConfig> = {}): World {
     a.nextHuntAgeSeconds = a.ageSeconds + rng() * 20;
     agents.push(a);
   }
+
+  // Humains : dispersés (0 par défaut → ils n'apparaissent qu'au spawn manuel).
+  for (const s of findScatteredCells(terrain, config, config.initialHumans)) {
+    const a = createHuman(nextId++, s.x, s.z, rng);
+    a.ageSeconds = HUMAN.adultAgeSeconds;
+    agents.push(a);
+  }
   return {
     config,
     terrain,
@@ -80,11 +88,44 @@ export function createWorld(overrides: Partial<WorldConfig> = {}): World {
     carnivoreCount: config.initialCarnivores,
     isNight: false,
     rng,
-    nextAgentId: config.initialHerbivores + config.initialCarnivores + 1,
+    nextAgentId: config.initialHerbivores + config.initialCarnivores + config.initialHumans + 1,
     // On démarre en matinée (30 % du jour) pour que la première vue soit éclairée.
     simTimeSeconds: 0.3 * config.dayLengthSeconds,
     tickCount: 0,
   };
+}
+
+/**
+ * Ajoute un agent au monde (perturbation Phase 5). Place sur terre : si (x,z)
+ * tombe dans l'eau, cherche la cellule d'herbe la plus proche. Un carnivore
+ * reçoit une tanière sur place (il n'appartient à aucun clan).
+ */
+export function spawnAgentAt(
+  world: World, species: "herbivore" | "carnivore" | "human", x: number, z: number,
+): Agent {
+  const { config, terrain } = world;
+  let sx = x, sz = z;
+  if (terrain.zones[cellIndexAt(config, x, z)] !== ZONE_GRASS) {
+    // Cellule cliquée non praticable : glisser vers l'herbe la plus proche.
+    const b = config.biomassResolution;
+    let best = -1, bestD = Infinity;
+    for (let i = 0; i < terrain.zones.length; i++) {
+      if (terrain.zones[i] !== ZONE_GRASS) continue;
+      const cx = ((i % b) + 0.5) * (config.sizeMeters / b) - config.sizeMeters / 2;
+      const cz = (Math.floor(i / b) + 0.5) * (config.sizeMeters / b) - config.sizeMeters / 2;
+      const d = (cx - x) ** 2 + (cz - z) ** 2;
+      if (d < bestD) { bestD = d; best = i; sx = cx; sz = cz; }
+    }
+    if (best < 0) { sx = 0; sz = 0; }
+  }
+  const id = world.nextAgentId++;
+  const a = species === "herbivore" ? createHerbivore(id, sx, sz, world.rng)
+    : species === "carnivore" ? createCarnivore(id, sx, sz, world.rng)
+      : createHuman(id, sx, sz, world.rng);
+  if (species === "carnivore") { a.denX = sx; a.denZ = sz; }
+  a.ageSeconds = paramsOf(a).adultAgeSeconds; // spawné adulte
+  world.agents.push(a);
+  return a;
 }
 
 /** Avance la sim d'exactement un tick (pas fixe — architecture §4). */

@@ -3,7 +3,7 @@ import { CARNIVORE, HERBIVORE } from "@eco/shared";
 import { createCarnivore, createHerbivore } from "./agent";
 import { preyEnergyValue } from "./agentTick";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
-import { createWorld, tickWorld } from "./world";
+import { createWorld, spawnAgentAt, tickWorld } from "./world";
 
 describe("un agent qui vit", () => {
   it("le monde spawne initialHerbivores adultes sur l'herbe", () => {
@@ -405,5 +405,58 @@ describe("sommeil nocturne", () => {
     const juv = createHerbivore(2, 0, 0, rng);
     juv.ageSeconds = 1;
     expect(preyEnergyValue(adult)).toBeGreaterThan(preyEnergyValue(juv));
+  });
+});
+
+describe("humain — apex non-reproducteur", () => {
+  function humanWorld() {
+    return createWorld({
+      initialHerbivores: 0, initialCarnivores: 0, initialHumans: 0,
+      riverWidth: 0, waterLevel: -100,
+    });
+  }
+
+  it("chasse un herbivore ET un carnivore proches", () => {
+    const w = humanWorld();
+    const human = spawnAgentAt(w, "human", 0, 0);
+    human.energy = 0.4; human.hydration = 1; human.nextHuntAgeSeconds = 0;
+    const prey1 = spawnAgentAt(w, "herbivore", 6, 0);
+    const prey2 = spawnAgentAt(w, "carnivore", 0, 6);
+    prey1.hydration = 1; prey2.hydration = 1;
+    let herbKilled = false, carnKilled = false;
+    for (let t = 0; t < 400 && !(herbKilled && carnKilled); t++) {
+      // proies maintenues sur place et affamées (lentes) pour tester la chasse
+      if (prey1.state !== "Dead") { prey1.x = 6; prey1.z = 0; prey1.energy = 0.15; }
+      if (prey2.state !== "Dead") { prey2.x = 0; prey2.z = 6; prey2.energy = 0.15; }
+      human.energy = 0.4; human.nextHuntAgeSeconds = 0;
+      tickWorld(w);
+      if (prey1.state === "Dead") herbKilled = true;
+      if (prey2.state === "Dead") carnKilled = true;
+    }
+    expect(herbKilled).toBe(true);
+    expect(carnKilled).toBe(true);
+  });
+
+  it("un herbivore fuit un humain, un carnivore ne fuit pas", () => {
+    const w = humanWorld();
+    const human = spawnAgentAt(w, "human", 0, 0);
+    human.x = 0; human.z = 0;
+    human.nextHuntAgeSeconds = 1e9; // il ne chasse pas : on teste la perception
+    const herb = spawnAgentAt(w, "herbivore", 5, 0);
+    herb.x = 5; herb.z = 0;
+    const carn = spawnAgentAt(w, "carnivore", -5, 0);
+    carn.x = -5; carn.z = 0;
+    carn.nextHuntAgeSeconds = 1e9; carn.nextMateAgeSeconds = 1e9;
+    tickWorld(w);
+    expect(herb.hasThreat).toBe(true);   // l'herbivore perçoit l'humain
+    expect(herb.state).toBe("Flee");
+    expect(carn.state).not.toBe("Flee"); // le carnivore ne fuit pas
+  });
+
+  it("déterminisme conservé sans humains", () => {
+    const w1 = createWorld(), w2 = createWorld();
+    for (let t = 0; t < 800; t++) { tickWorld(w1); tickWorld(w2); }
+    expect(w1.agents.map((a) => [a.id, a.species, a.x, a.z, a.state]))
+      .toEqual(w2.agents.map((a) => [a.id, a.species, a.x, a.z, a.state]));
   });
 });

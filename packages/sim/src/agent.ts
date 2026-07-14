@@ -1,5 +1,5 @@
 import {
-  CARNIVORE, HERBIVORE,
+  CARNIVORE, HERBIVORE, HUMAN,
   type AgentState, type Rng, type SpeciesParams, type Transition, type WorldConfig,
 } from "@eco/shared";
 import { cellCenterX, cellCenterZ } from "./biomass";
@@ -11,7 +11,7 @@ import { ZONE_GRASS, type TerrainData } from "./terrain";
  */
 export interface Agent {
   id: number;
-  species: "herbivore" | "carnivore";
+  species: "herbivore" | "carnivore" | "human";
   x: number; z: number;
   vx: number; vz: number;
   heading: number;          // radians, 0 = +Z (convention rotationY de Three)
@@ -53,7 +53,7 @@ export interface Agent {
 }
 
 function createAgent(
-  species: "herbivore" | "carnivore", p: SpeciesParams,
+  species: "herbivore" | "carnivore" | "human", p: SpeciesParams,
   id: number, x: number, z: number, rng: Rng,
 ): Agent {
   return {
@@ -82,8 +82,14 @@ export function createCarnivore(id: number, x: number, z: number, rng: Rng): Age
   return createAgent("carnivore", CARNIVORE, id, x, z, rng);
 }
 
+export function createHuman(id: number, x: number, z: number, rng: Rng): Agent {
+  return createAgent("human", HUMAN, id, x, z, rng);
+}
+
 export function paramsOf(a: Agent): SpeciesParams {
-  return a.species === "herbivore" ? HERBIVORE : CARNIVORE;
+  if (a.species === "herbivore") return HERBIVORE;
+  if (a.species === "carnivore") return CARNIVORE;
+  return HUMAN;
 }
 
 /**

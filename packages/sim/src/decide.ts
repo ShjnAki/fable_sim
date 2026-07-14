@@ -1,4 +1,6 @@
-import type { AgentState, CarnivoreParams, HerbivoreParams, SpeciesParams } from "@eco/shared";
+import type {
+  AgentState, CarnivoreParams, HerbivoreParams, HumanParams, SpeciesParams,
+} from "@eco/shared";
 import type { Agent } from "./agent";
 
 export interface Decision { state: AgentState; cause: string; }
@@ -102,6 +104,31 @@ export function decideCarnivore(a: Agent, p: CarnivoreParams): Decision | null {
     if (a.energy < p.huntBelow && canHunt) return { state: "Hunt", cause: "faim" };
     // Territorialité : pas de reproduction en territoire saturé (densité-dépendance).
     if (isMateEligible(a, p, a.rare) && (!a.crowded || a.rare)) return { state: "SeekMate", cause: "prêt à se reproduire" };
+  }
+  return null;
+}
+
+/**
+ * Priorités humain : comme le carnivore mais SANS reproduction (apex non-
+ * reproducteur, outil de perturbation). Soif critique > faim (Hunt) > boire
+ * (hystérésis) > soif ordinaire > chasse > errance.
+ */
+export function decideHuman(a: Agent, p: HumanParams): Decision | null {
+  const canHunt = a.ageSeconds >= a.nextHuntAgeSeconds;
+  if (a.hydration < p.criticalNeed && a.state !== "SeekWater" && a.state !== "Drink") {
+    return { state: "SeekWater", cause: "soif critique" };
+  }
+  if (a.hydration >= p.criticalNeed && a.energy < p.criticalNeed
+      && a.state !== "Hunt" && a.state !== "Scavenge" && a.state !== "Drink" && canHunt) {
+    return { state: "Hunt", cause: "faim critique" };
+  }
+  if (a.state === "Drink" && a.hydration >= p.stopDrinkAt) {
+    if (a.energy < p.huntBelow && canHunt) return { state: "Hunt", cause: "désaltéré, faim" };
+    return { state: "Wander", cause: "désaltéré" };
+  }
+  if (a.state === "Wander") {
+    if (a.hydration < p.seekWaterBelow) return { state: "SeekWater", cause: "soif" };
+    if (a.energy < p.huntBelow && canHunt) return { state: "Hunt", cause: "faim" };
   }
   return null;
 }

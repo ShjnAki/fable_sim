@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { CARNIVORE, DEFAULT_WORLD_CONFIG, HERBIVORE, createRng } from "@eco/shared";
+import { CARNIVORE, DEFAULT_WORLD_CONFIG, HERBIVORE, HUMAN, createRng } from "@eco/shared";
 import {
-  createCarnivore, createHerbivore, findCarnivoreDens, findSpawnCell, findSpawnCells, paramsOf,
+  createCarnivore, createHerbivore, createHuman,
+  findCarnivoreDens, findSpawnCell, findSpawnCells, paramsOf,
 } from "./agent";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
 import { ZONE_GRASS, generateTerrain } from "./terrain";
@@ -90,5 +91,13 @@ describe("vieillesse", () => {
     const b = createHerbivore(1, 0, 0, createRng("v"));
     expect(a.maxAgeSeconds).toBe(b.maxAgeSeconds);
     expect(a.maxAgeSeconds).toBeGreaterThan(0);
+  });
+});
+
+describe("humain", () => {
+  it("createHuman initialise un humain, paramsOf → HUMAN", () => {
+    const h = createHuman(1, 0, 0, createRng("h"));
+    expect(h.species).toBe("human");
+    expect(paramsOf(h)).toBe(HUMAN);
   });
 });
