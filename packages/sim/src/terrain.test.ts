@@ -89,6 +89,33 @@ describe("classifyZone", () => {
   });
 });
 
+describe("rivières", () => {
+  it("ajoutent des cellules de rive (points où boire) sur l'île", () => {
+    const sansRivieres = generateTerrain({ ...cfg, riverWidth: 0 });
+    const avecRivieres = generateTerrain(cfg); // défaut : rivières activées
+    expect(avecRivieres.shoreCells.length).toBeGreaterThan(sansRivieres.shoreCells.length);
+  });
+  it("creusent de l'eau à l'intérieur de l'île (pas seulement au bord)", () => {
+    const t = generateTerrain(cfg);
+    const b = cfg.biomassResolution;
+    // Une bande centrale (loin des bords) contient de l'eau grâce aux rivières.
+    let interiorWater = 0;
+    for (let iz = b / 3; iz < (2 * b) / 3; iz++) {
+      for (let ix = b / 3; ix < (2 * b) / 3; ix++) {
+        if (t.zones[iz * b + ix] === ZONE_WATER) interiorWater++;
+      }
+    }
+    expect(interiorWater).toBeGreaterThan(0);
+  });
+});
+
+describe("pont central", () => {
+  it("offre une terre franchissable au-dessus de l'eau au centre", () => {
+    const t = generateTerrain(cfg);
+    expect(sampleHeight(t, cfg, 0, 0)).toBeGreaterThanOrEqual(cfg.waterLevel);
+  });
+});
+
 describe("shoreCells", () => {
   it("chaque cellule de rive est de l'herbe avec un voisin eau", () => {
     const t = generateTerrain(cfg);

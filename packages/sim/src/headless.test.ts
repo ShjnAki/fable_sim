@@ -13,7 +13,7 @@ describe("runHeadless", () => {
   });
   it("détecte l'extinction et s'arrête tôt", () => {
     // Sans eau, tout meurt en < 2 min de sim.
-    const r = runHeadless({ hours: 1, sampleSeconds: 10, overrides: { waterLevel: -5 } });
+    const r = runHeadless({ hours: 1, sampleSeconds: 10, overrides: { waterLevel: -5, riverWidth: 0 } });
     expect(r.verdict).toBe("extinction");
     expect(r.samples.at(-1)!.t).toBeLessThan(600); // arrêt tôt, pas 3600 s
   });

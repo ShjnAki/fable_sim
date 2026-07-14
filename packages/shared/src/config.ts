@@ -11,6 +11,18 @@ export interface WorldConfig {
   maxHeight: number;
   /** Niveau de l'eau (m). */
   waterLevel: number;
+  /** Demi-largeur des rivières (m). 0 = pas de rivières. */
+  riverWidth: number;
+  /** Profondeur des chenaux sous le niveau de l'eau (m). */
+  riverDepth: number;
+  /** Amplitude des méandres des rivières (m). */
+  riverMeander: number;
+  /** Demi-largeur du pont naturel central (m). 0 = pas de pont. */
+  bridgeWidth: number;
+  /** Demi-longueur du pont central (m). */
+  bridgeReach: number;
+  /** Hauteur du pont au-dessus du niveau de l'eau (m). */
+  bridgeHeight: number;
   /** Pente (dy par mètre horizontal) au-delà de laquelle c'est de la roche. */
   rockSlope: number;
   /** Résolution de la grille de biomasse/zones (cellules par côté). */
@@ -34,6 +46,12 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   noiseWavelength: 180,
   maxHeight: 36,
   waterLevel: 5,
+  riverWidth: 11,
+  riverDepth: 4,
+  riverMeander: 26,
+  bridgeWidth: 7,
+  bridgeReach: 60,
+  bridgeHeight: 3,
   rockSlope: 0.7,
   biomassResolution: 128,
   biomassRegrowthRate: 0.08,

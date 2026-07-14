@@ -57,6 +57,47 @@ export function generateTerrain(config: WorldConfig): TerrainData {
     }
   }
 
+  // Rivières : deux chenaux en croix creusés sous le niveau de l'eau, des
+  // hauteurs centrales vers les deux mers. Répartit l'eau (donc les points où
+  // boire, donc les proies) sur toute l'île. Méandre par un bruit dédié
+  // (graine séparée → le relief hors rivières est identique à avant).
+  if (config.riverWidth > 0) {
+    const meander = createNoise2D(createRng(config.seed + ":rivers"));
+    const w = config.riverWidth;
+    for (let iz = 0; iz <= n; iz++) {
+      for (let ix = 0; ix <= n; ix++) {
+        const x = (ix / n) * size - half;
+        const z = (iz / n) * size - half;
+        const cz = config.riverMeander * meander(x * 0.012, 7.3);  // rivière ~E-O
+        const cx = config.riverMeander * meander(z * 0.012, 19.1); // rivière ~N-S
+        const d = Math.min(Math.abs(z - cz), Math.abs(x - cx));
+        if (d < w) {
+          const t = d / w;                            // 0 au centre, 1 à la berge
+          const bed = config.waterLevel - config.riverDepth * (1 - t * t);
+          const idx = iz * (n + 1) + ix;
+          if (heights[idx]! > bed) heights[idx] = bed;
+        }
+      }
+    }
+  }
+
+  // Pont naturel central : une bande étroite surélevée au-dessus de l'eau qui
+  // retraverse le carrefour de rivières pour relier les terres. Étroit et bordé
+  // d'eau → les animaux le franchissent mais certains s'égarent au bord.
+  if (config.bridgeWidth > 0) {
+    const deck = config.waterLevel + config.bridgeHeight;
+    for (let iz = 0; iz <= n; iz++) {
+      for (let ix = 0; ix <= n; ix++) {
+        const x = (ix / n) * size - half;
+        const z = (iz / n) * size - half;
+        if (Math.abs(x) < config.bridgeReach && Math.abs(z) < config.bridgeWidth) {
+          const idx = iz * (n + 1) + ix;
+          if (heights[idx]! < deck) heights[idx] = deck;
+        }
+      }
+    }
+  }
+
   const terrain: TerrainData = {
     heights, zones: new Uint8Array(0), shoreCells: new Uint32Array(0),
   };

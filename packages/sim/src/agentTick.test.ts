@@ -23,7 +23,7 @@ describe("un agent qui vit", () => {
   });
 
   it("meurt de soif dans un monde sans eau", () => {
-    const w = createWorld({ waterLevel: -5, initialHerbivores: 1, initialCarnivores: 0 }); // plus aucune cellule d'eau
+    const w = createWorld({ waterLevel: -5, initialHerbivores: 1, initialCarnivores: 0, riverWidth: 0 }); // plus aucune cellule d'eau
     for (let t = 0; t < 3000 && w.agents.length > 0 && w.agents[0]!.state !== "Dead"; t++) {
       tickWorld(w);
     }
@@ -66,7 +66,7 @@ describe("un agent qui vit", () => {
   });
 
   it("le cadavre disparaît après corpseDespawnSeconds", () => {
-    const w = createWorld({ waterLevel: -5, initialHerbivores: 1, initialCarnivores: 0 });
+    const w = createWorld({ waterLevel: -5, initialHerbivores: 1, initialCarnivores: 0, riverWidth: 0 });
     for (let t = 0; t < 4000 && w.agents.length > 0; t++) tickWorld(w);
     expect(w.agents.length).toBe(0);
   });
@@ -75,7 +75,8 @@ describe("un agent qui vit", () => {
 describe("chasse", () => {
   /** Monde 1 proie + 1 chasseur affamé, positions et états contrôlés. */
   function huntWorld(preyEnergy: number, gap: number) {
-    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 1 });
+    // Terrain sans rivières : test de mécanique de chasse, pas de terrain.
+    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 1, riverWidth: 0 });
     const prey = w.agents.find((a) => a.species === "herbivore")!;
     const wolf = w.agents.find((a) => a.species === "carnivore")!;
     prey.energy = preyEnergy; prey.hydration = 1;
@@ -138,7 +139,7 @@ describe("chasse", () => {
   });
 
   it("charogne : un carnivore affamé sans proie mange un cadavre proche", () => {
-    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 1 });
+    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 1, riverWidth: 0 });
     const prey = w.agents.find((a) => a.species === "herbivore")!;
     const wolf = w.agents.find((a) => a.species === "carnivore")!;
     // La proie vivante est loin (hors engagement) ; un cadavre est tout près.
