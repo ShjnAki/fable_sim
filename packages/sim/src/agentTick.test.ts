@@ -95,10 +95,11 @@ describe("chasse", () => {
     expect(wolf.transitions.some((tr) => tr.cause === "proie tuée")).toBe(true);
   });
 
-  it("abandonne épuisé face à une proie rapide partie de loin", () => {
-    const { w, prey, wolf } = huntWorld(1.0, 35);
+  it("abandonne épuisé si la proie reste hors d'atteinte", () => {
+    const { w, prey, wolf } = huntWorld(1.0, 30);
     for (let t = 0; t < 400 && !wolf.transitions.some((tr) => tr.cause === "épuisé"); t++) {
-      prey.energy = 1; // la proie reste fraîche : elle ne DOIT pas être rattrapée
+      // La proie est maintenue juste dans le rayon d'engagement, jamais atteignable.
+      prey.x = wolf.x + 30; prey.z = wolf.z; prey.energy = 1;
       tickWorld(w);
     }
     expect(wolf.transitions.some((tr) => tr.cause === "épuisé")).toBe(true);
@@ -121,19 +122,22 @@ describe("chasse", () => {
 });
 
 describe("fuite", () => {
-  it("hystérésis : menace à 15 m, encore à 25 m, éteinte à 40 m", () => {
+  it("hystérésis : menace sous trigger, encore entre trigger et safe, éteinte au-delà", () => {
     const w = createWorld({ initialHerbivores: 1, initialCarnivores: 0 });
     const prey = w.agents[0]!;
-    const wolf = createCarnivore(99, prey.x + 15, prey.z, w.rng);
+    const inside = HERBIVORE.fleeTriggerRadius - 2;
+    const between = (HERBIVORE.fleeTriggerRadius + HERBIVORE.fleeSafeRadius) / 2;
+    const beyond = HERBIVORE.fleeSafeRadius + 5;
+    const wolf = createCarnivore(99, prey.x + inside, prey.z, w.rng);
     wolf.nextHuntAgeSeconds = 1e9; // il ne chasse pas : on teste la perception
     w.agents.push(wolf);
     tickWorld(w);
     expect(prey.hasThreat).toBe(true);
     expect(prey.state).toBe("Flee");
-    wolf.x = prey.x + 25; // entre trigger (20) et safe (35)
+    wolf.x = prey.x + between;
     tickWorld(w);
     expect(prey.hasThreat).toBe(true);
-    wolf.x = prey.x + 40;
+    wolf.x = prey.x + beyond;
     tickWorld(w);
     expect(prey.hasThreat).toBe(false);
     expect(prey.state).toBe("Wander");
@@ -151,6 +155,22 @@ describe("fuite", () => {
     for (let t = 0; t < 40; t++) { wolf.x = prey.x - 5; wolf.vx = 0; tickWorld(w); }
     expect(prey.x).toBeGreaterThan(x0 + 5); // il s'éloigne en +X
     expect(Math.hypot(prey.vx, prey.vz)).toBeGreaterThan(HERBIVORE.maxSpeed);
+  });
+});
+
+describe("reproduction carnivore", () => {
+  it("deux carnivores éligibles produisent un carnivore", () => {
+    const w = createWorld({ initialHerbivores: 0, initialCarnivores: 2 });
+    const a = w.agents[0]!, b = w.agents[1]!;
+    b.x = a.x + 1; b.z = a.z;
+    for (const ag of [a, b]) {
+      ag.energy = 0.9; ag.hydration = 0.9; ag.nextMateAgeSeconds = 0;
+      ag.nextHuntAgeSeconds = 1e9;
+    }
+    for (let t = 0; t < 100 && w.agents.length === 2; t++) tickWorld(w);
+    expect(w.agents.length).toBe(3);
+    expect(w.agents[2]!.species).toBe("carnivore");
+    expect(a.energy).toBeLessThanOrEqual(0.9 - CARNIVORE.mateEnergyCost);
   });
 });
 

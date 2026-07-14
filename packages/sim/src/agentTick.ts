@@ -2,7 +2,7 @@ import {
   CARNIVORE, HERBIVORE,
   type AgentState, type HerbivoreParams, type Rng,
 } from "@eco/shared";
-import { createHerbivore, paramsOf, type Agent } from "./agent";
+import { createCarnivore, createHerbivore, paramsOf, type Agent } from "./agent";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
 import { accumulateBoids } from "./boids";
 import { decideCarnivore, decideHerbivore, isMateEligible } from "./decide";
@@ -12,6 +12,14 @@ import { ZONE_GRASS, sampleHeight } from "./terrain";
 import type { World } from "./world";
 
 const steer: SteerOut = { ax: 0, az: 0 }; // scratch module — zéro alloc par tick
+
+/** Mort d'un agent : transition + compteur de cause (diagnostic de tuning). */
+function kill(world: World, a: Agent, cause: string): void {
+  a.vx = a.vz = 0;
+  const key = `${a.species}:${cause}`;
+  world.deaths[key] = (world.deaths[key] ?? 0) + 1;
+  applyTransition(a, "Dead", cause, world.tickCount);
+}
 
 export function applyTransition(a: Agent, to: AgentState, cause: string, tick: number): void {
   a.transitions.push({ tick, from: a.state, to, cause });
@@ -95,8 +103,10 @@ function considerPrey(n: Agent): void {
 }
 function findNearestPrey(world: World, a: Agent): Agent | null {
   preySeeker = a; preyBest = null;
-  preyBestD2 = CARNIVORE.perceptionRadius ** 2;
-  forEachNeighbor(world.grid, a.x, a.z, CARNIVORE.perceptionRadius, considerPrey);
+  // Engagement à courte portée : sprinter une proie lointaine épuise pour rien.
+  const r = CARNIVORE.huntCommitRadius;
+  preyBestD2 = r * r;
+  forEachNeighbor(world.grid, a.x, a.z, r, considerPrey);
   return preyBest;
 }
 
@@ -126,8 +136,9 @@ function perceiveThreat(world: World, a: Agent, p: HerbivoreParams): void {
 
 /** Naissance : le parent au plus petit id l'exécute — jamais deux fois. */
 function birth(world: World, a: Agent, mate: Agent): void {
-  const p = HERBIVORE;
-  const child = createHerbivore(
+  const p = paramsOf(a);
+  const make = a.species === "herbivore" ? createHerbivore : createCarnivore;
+  const child = make(
     world.nextAgentId++,
     (a.x + mate.x) / 2 + (world.rng() - 0.5) * 2,
     (a.z + mate.z) / 2 + (world.rng() - 0.5) * 2,
@@ -148,20 +159,19 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
 
   a.ageSeconds += dt;
   if (a.ageSeconds >= a.maxAgeSeconds) {
-    a.vx = a.vz = 0;
-    applyTransition(a, "Dead", "vieillesse", world.tickCount);
+    kill(world, a, "vieillesse");
     return;
   }
   a.energy -= p.energyDecayPerSec * dt;
   a.hydration -= p.hydrationDecayPerSec * dt;
   if (a.hydration <= 0) {
-    a.hydration = 0; a.vx = a.vz = 0;
-    applyTransition(a, "Dead", "mort de soif", world.tickCount);
+    a.hydration = 0;
+    kill(world, a, "mort de soif");
     return;
   }
   if (a.energy <= 0) {
-    a.energy = 0; a.vx = a.vz = 0;
-    applyTransition(a, "Dead", "mort de faim", world.tickCount);
+    a.energy = 0;
+    kill(world, a, "mort de faim");
     return;
   }
 
@@ -259,8 +269,7 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       speedCap = pc.sprintSpeed;
       const hdx = prey.x - a.x, hdz = prey.z - a.z;
       if (hdx * hdx + hdz * hdz < pc.killDistance * pc.killDistance) {
-        prey.vx = prey.vz = 0;
-        applyTransition(prey, "Dead", "prédation", world.tickCount);
+        kill(world, prey, "prédation");
         a.energy = Math.min(1, a.energy + pc.killEnergyGain);
         a.nextHuntAgeSeconds = a.ageSeconds + pc.huntCooldownSeconds;
         applyTransition(a, "Wander", "proie tuée", world.tickCount);
