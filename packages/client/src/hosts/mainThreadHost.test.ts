@@ -29,3 +29,23 @@ describe("mainThreadHost — commandes Phase 5", () => {
     expect(host.getSpeed()).toBe(4);
   });
 });
+
+describe("mainThreadHost — commandes Phase 6", () => {
+  it("spawnPlayer expose un joueur dans le snapshot, l'intention le déplace", () => {
+    const host = createMainThreadHost({
+      initialHerbivores: 0, initialCarnivores: 0, initialHumans: 0,
+    });
+    host.spawnPlayer();
+    host.update(0);
+    host.update(1000); // ~20 ticks
+    const [, snap] = host.latestSnapshots();
+    expect(snap?.player).not.toBeNull();
+    const x0 = snap!.agents.find((a) => a.id === snap!.player!.id)!.x;
+
+    host.setPlayerIntent({ moveX: 1, moveZ: 0, sprint: false, strike: false, interact: false });
+    host.update(3000);
+    const [, snap2] = host.latestSnapshots();
+    const x1 = snap2!.agents.find((a) => a.id === snap2!.player!.id)!.x;
+    expect(x1).toBeGreaterThan(x0);
+  });
+});

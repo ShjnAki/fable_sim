@@ -1,5 +1,10 @@
-import { HERBIVORE, type SimHost, type TickSnapshot, type WorldConfig } from "@eco/shared";
-import { createWorld, makeSnapshot, spawnAgentAt, tickWorld } from "@eco/sim";
+import {
+  HERBIVORE,
+  type PlayerIntent, type SimHost, type TickSnapshot, type WorldConfig,
+} from "@eco/shared";
+import {
+  createWorld, makeSnapshot, setPlayerControl, spawnAgentAt, spawnPlayer, tickWorld,
+} from "@eco/sim";
 import { advanceAccumulator } from "../loop/accumulator";
 
 /** Sim dans le thread principal — le rendu reste spectateur (architecture §2). */
@@ -50,6 +55,24 @@ export function createMainThreadHost(overrides: Partial<WorldConfig> = {}): SimH
       for (let i = 0; i < v.length; i++) {
         v[i] = kind === "drought" ? v[i]! * 0.25 : Math.min(1, v[i]! * 2 + 0.3);
       }
+    },
+    setPlayerIntent(intent: PlayerIntent): void {
+      // On RECOPIE dans l'objet du monde (jamais de remplacement de référence) :
+      // la sim consomme les impulsions sur place, et le zéro-alloc est préservé.
+      const t = world.playerIntent;
+      t.moveX = intent.moveX;
+      t.moveZ = intent.moveZ;
+      t.sprint = intent.sprint;
+      // Impulsions COLLANTES : on ne les efface jamais ici, seule la sim les
+      // consomme. Sinon un clic tombé entre deux ticks serait perdu.
+      if (intent.strike) t.strike = true;
+      if (intent.interact) t.interact = true;
+    },
+    spawnPlayer(): void {
+      spawnPlayer(world);
+    },
+    setPlayerControl(controlled: boolean): void {
+      setPlayerControl(world, controlled);
     },
   };
 }
