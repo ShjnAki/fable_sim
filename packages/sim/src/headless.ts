@@ -59,6 +59,12 @@ export function runHeadless(opts: {
     return s;
   };
 
+  const deathReport = (): string =>
+    Object.entries(world.deaths)
+      .sort(([, a], [, b]) => b - a)
+      .map(([k, n]) => `${k}=${n}`)
+      .join(" ") || "aucune mort";
+
   sample();
   for (let t = 0; t < totalTicks; t++) {
     tickWorld(world);
@@ -66,7 +72,10 @@ export function runHeadless(opts: {
       const s = sample();
       if (s.herbivores === 0 || s.carnivores === 0) {
         const espece = s.herbivores === 0 ? "herbivore" : "carnivore";
-        return { samples, verdict: "extinction", detail: `extinction ${espece} à t=${s.t}s` };
+        return {
+          samples, verdict: "extinction",
+          detail: `extinction ${espece} à t=${s.t}s — morts : ${deathReport()}`,
+        };
       }
       if (s.herbivores + s.carnivores > POP_CEILING) {
         return {
@@ -83,6 +92,7 @@ export function runHeadless(opts: {
   }
   return {
     samples, verdict: "stable",
-    detail: `herbivores [${minH}..${maxH}], carnivores [${minC}..${maxC}] sur ${hours} h`,
+    detail: `herbivores [${minH}..${maxH}], carnivores [${minC}..${maxC}] sur ${hours} h`
+      + ` — morts : ${deathReport()}`,
   };
 }

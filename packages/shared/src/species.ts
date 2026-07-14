@@ -40,6 +40,7 @@ export interface HerbivoreParams extends SpeciesParams {
 
 export interface CarnivoreParams extends SpeciesParams {
   huntBelow: number;             // seuil de faim qui déclenche la chasse
+  huntCommitRadius: number;      // m — distance max d'engagement d'une proie (< perception)
   sprintSpeed: number;           // m/s en Hunt — vide la stamina
   staminaDrainPerSec: number;
   staminaRegenPerSec: number;
@@ -51,26 +52,26 @@ export interface CarnivoreParams extends SpeciesParams {
 
 export const HERBIVORE: HerbivoreParams = {
   maxSpeed: 4, maxForce: 6, perceptionRadius: 60,
-  energyDecayPerSec: 1 / 150, hydrationDecayPerSec: 1 / 100, drinkPerSec: 0.15,
+  energyDecayPerSec: 1 / 150, hydrationDecayPerSec: 1 / 130, drinkPerSec: 0.35,
   criticalNeed: 0.25, seekWaterBelow: 0.5, stopDrinkAt: 0.95,
-  adultAgeSeconds: 45, mateEnergyMin: 0.75, mateHydrationMin: 0.6,
-  mateEnergyCost: 0.35, mateCooldownSeconds: 60, mateRetrySeconds: 10,
+  adultAgeSeconds: 40, mateEnergyMin: 0.7, mateHydrationMin: 0.55,
+  mateEnergyCost: 0.35, mateCooldownSeconds: 55, mateRetrySeconds: 8,
   maxAgeSeconds: 600, maxAgeVarianceSeconds: 120, corpseDespawnSeconds: 10,
   eatEnergyPerSec: 0.08, eatBiomassPerSec: 0.2,
   seekFoodBelow: 0.6, stopEatAt: 0.9, minFoodBiomass: 0.25,
   boidsRadius: 8, separationWeight: 1.2, alignmentWeight: 0.4, cohesionWeight: 0.35,
-  fleeTriggerRadius: 20, fleeSafeRadius: 35, fleeBoost: 1.4,
+  fleeTriggerRadius: 8, fleeSafeRadius: 14, fleeBoost: 1.5,
 };
 
 export const CARNIVORE: CarnivoreParams = {
-  maxSpeed: 3.5, maxForce: 7, perceptionRadius: 70,
-  energyDecayPerSec: 1 / 220, hydrationDecayPerSec: 1 / 120, drinkPerSec: 0.15,
+  maxSpeed: 3.5, maxForce: 7, perceptionRadius: 90,
+  energyDecayPerSec: 1 / 350, hydrationDecayPerSec: 1 / 120, drinkPerSec: 0.15,
   criticalNeed: 0.25, seekWaterBelow: 0.45, stopDrinkAt: 0.95,
-  adultAgeSeconds: 60, mateEnergyMin: 0.7, mateHydrationMin: 0.55,
-  mateEnergyCost: 0.45, mateCooldownSeconds: 120, mateRetrySeconds: 12,
-  maxAgeSeconds: 800, maxAgeVarianceSeconds: 150, corpseDespawnSeconds: 12,
-  huntBelow: 0.65, sprintSpeed: 7,
-  staminaDrainPerSec: 1 / 6, staminaRegenPerSec: 1 / 20,
-  killEnergyGain: 0.55, killDistance: 1.5,
-  huntCooldownSeconds: 25, huntRetrySeconds: 8,
+  adultAgeSeconds: 55, mateEnergyMin: 0.7, mateHydrationMin: 0.55,
+  mateEnergyCost: 0.5, mateCooldownSeconds: 100, mateRetrySeconds: 12,
+  maxAgeSeconds: 900, maxAgeVarianceSeconds: 150, corpseDespawnSeconds: 12,
+  huntBelow: 0.68, huntCommitRadius: 40, sprintSpeed: 8,
+  staminaDrainPerSec: 1 / 12, staminaRegenPerSec: 1 / 20,
+  killEnergyGain: 0.72, killDistance: 1.5,
+  huntCooldownSeconds: 85, huntRetrySeconds: 8,
 };

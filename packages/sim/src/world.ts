@@ -15,6 +15,8 @@ export interface World {
   agents: Agent[];
   /** Grille de voisinage, reconstruite à chaque tick (architecture §6). */
   grid: SpatialGrid;
+  /** Compteurs cumulés de morts par cause — diagnostic de tuning (Phase 4). */
+  deaths: Record<string, number>;
   /** RNG unique de la sim vivante — tout tirage passe par lui (déterminisme). */
   rng: Rng;
   nextAgentId: number;
@@ -47,6 +49,7 @@ export function createWorld(overrides: Partial<WorldConfig> = {}): World {
     biomass: createBiomass(terrain, config, createRng(config.seed + ":biomass")),
     agents,
     grid: createSpatialGrid(config),
+    deaths: {},
     rng,
     nextAgentId: config.initialHerbivores + config.initialCarnivores + 1,
     // On démarre en matinée (30 % du jour) pour que la première vue soit éclairée.
