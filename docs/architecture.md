@@ -336,5 +336,45 @@ surveillance.
 
 ## Révisions
 
-_(vide — toute remise en cause d'une décision ci-dessus se documente ici : date,
-décision remplacée, raison.)_
+### 2026-07-14 — Le projet devient un jeu : refonte du plan de phases (§12)
+
+**Décision remplacée :** le plan de phases du §12 (6 = serveur persistant,
+7 = génétique bonus).
+
+**Nouveau plan :**
+
+| Phase | Contenu | Critère de sortie |
+|---|---|---|
+| 6 | **Incarnation & survie** : le joueur EST un humain de la sim (caméra 3ᵉ personne, contrôle direct, vitalité, meutes qui le chassent, mort/renaissance) | « Je joue dix minutes et j'ai peur des loups » |
+| 7 | **Craft** : arbres, ramassage, épieu, feu de camp, hutte | Le joueur peut se défendre et tenir la nuit |
+| 8 | **Lignée & hérédité** : reproduction humaine, traits hérités mutables (façon *Rogue Legacy*), reprise d'un descendant à la mort — **et dérive génétique des animaux** | Héritier au trait subi ; graphes de dérive des traits |
+| 9 | **Monde persistant & clans rivaux** : serveur Node + WS, prédiction/réconciliation, Docker + Caddy, VPS | Monde h24, joueurs simultanés |
+
+**Raison (Shin, 2026-07-14) :** « Pour l'instant ça reste une simulation. On ne
+voit que de la vie mais rien d'autre. » Avant d'exposer le monde sur un VPS, il
+faut savoir **quel jeu** on y joue. Trois conséquences :
+
+1. **Le serveur glisse de la 6 à la 9.** On ne construit pas de netcode autour
+   d'un jeu dont personne n'a vérifié qu'il est bon. L'ordre « prouver le
+   plaisir en solo, payer le réseau ensuite » est délibéré.
+2. **Le §10 (mode serveur) reste valide mais incomplet** : il décrivait des
+   spectateurs en lecture seule. Il y aura désormais des **inputs joueur**, donc
+   une prédiction locale + réconciliation de l'agent du joueur. L'argument
+   « aucun input à prédire » du §2 tombe ; il sera réécrit en Phase 9.
+3. **La génétique (ex-Phase 7 bonus) fusionne avec la lignée (Phase 8).** Les
+   traits *Rogue Legacy* (gros, maigre, asthmatique, myope) sont exactement les
+   gènes réclamés par le prompt initial (vitesse, vision, métabolisme) : une
+   seule mécanique livre le plaisir de jeu ET la sélection naturelle.
+
+**Ce qui ne change pas :** la sim reste isomorphe et autoritaire, le rendu reste
+spectateur, le contrat `SimHost` reste la frontière unique (le joueur y entre par
+une commande `setPlayerIntent`, pas par un accès direct à l'état). C'est
+précisément cette architecture qui permet au joueur d'être **un `Agent` comme les
+autres, dont le `decide()` est simplement remplacé par des touches** — le reste de
+la simulation ignore jusqu'à son existence.
+
+**Garde-fou non négociable (Shin) :** la jauge de vitalité et les morsures ne
+concernent **que le duel loup ↔ humain**. La prédation loup → herbivore reste le
+tue-au-contact de la Phase 4 : l'équilibre Lotka-Volterra tuné (≈30 itérations,
+`docs/tuning-phase4.md`) ne doit pas bouger, et un test de non-régression le
+vérifie.
