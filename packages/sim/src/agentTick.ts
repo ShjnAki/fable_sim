@@ -140,6 +140,19 @@ function findNearestCorpse(world: World, a: Agent): Agent | null {
   return best;
 }
 
+// Comptage des congénères d'une proie (refuge du troupeau) — état module.
+let refugeOf: Agent;
+let refugeCount = 0;
+function countHerd(n: Agent): void {
+  if (n.id !== refugeOf.id && n.species === "herbivore" && n.state !== "Dead") refugeCount++;
+}
+/** Probabilité qu'une proie échappe à la morsure grâce à son troupeau (confusion). */
+function herdEscapeChance(world: World, prey: Agent, p: CarnivoreParams): number {
+  refugeOf = prey; refugeCount = 0;
+  forEachNeighbor(world.grid, prey.x, prey.z, p.preyRefugeRadius, countHerd);
+  return Math.min(p.preyRefugeMaxChance, refugeCount * p.preyRefugePerNeighbor);
+}
+
 // Perception de menace (herbivores) — état module, zéro alloc.
 let threatSeeker: Agent;
 let threatBest: Agent | null = null;
@@ -307,10 +320,17 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       speedCap = pc.sprintSpeed;
       const hdx = prey.x - a.x, hdz = prey.z - a.z;
       if (hdx * hdx + hdz * hdz < pc.killDistance * pc.killDistance) {
-        kill(world, prey, "prédation");
-        a.energy = Math.min(1, a.energy + pc.killEnergyGain);
-        a.nextHuntAgeSeconds = a.ageSeconds + pc.huntCooldownSeconds;
-        applyTransition(a, "Wander", "proie tuée", world.tickCount);
+        // Refuge du troupeau : une proie entourée peut déjouer la morsure.
+        if (rng() < herdEscapeChance(world, prey, pc)) {
+          a.nextHuntAgeSeconds = a.ageSeconds + pc.huntRetrySeconds;
+          applyTransition(a, "Wander", "proie échappée", world.tickCount);
+          wander(a, rng, pc.maxSpeed, pc.maxForce, steer);
+        } else {
+          kill(world, prey, "prédation");
+          a.energy = Math.min(1, a.energy + pc.killEnergyGain);
+          a.nextHuntAgeSeconds = a.ageSeconds + pc.huntCooldownSeconds;
+          applyTransition(a, "Wander", "proie tuée", world.tickCount);
+        }
       }
       break;
     }

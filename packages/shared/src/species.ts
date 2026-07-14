@@ -50,6 +50,9 @@ export interface CarnivoreParams extends SpeciesParams {
   killDistance: number;          // m — distance de mise à mort
   scavengeRadius: number;        // m — rayon de recherche d'un cadavre
   scavengeEnergyGain: number;    // énergie d'un cadavre (< kill : plancher, pas festin)
+  preyRefugeRadius: number;      // m — voisinage compté autour de la proie (troupeau)
+  preyRefugePerNeighbor: number; // proba d'échappement ajoutée par congénère (confusion)
+  preyRefugeMaxChance: number;   // plafond de la proba d'échappement
   huntCooldownSeconds: number;   // digestion après un kill
   huntRetrySeconds: number;      // délai après un abandon (épuisé / aucune proie)
 }
@@ -78,5 +81,6 @@ export const CARNIVORE: CarnivoreParams = {
   staminaDrainPerSec: 1 / 12, staminaRegenPerSec: 1 / 20,
   killEnergyGain: 0.72, killDistance: 1.5,
   scavengeRadius: 110, scavengeEnergyGain: 0.55,
+  preyRefugeRadius: 6, preyRefugePerNeighbor: 0.12, preyRefugeMaxChance: 0.75,
   huntCooldownSeconds: 85, huntRetrySeconds: 8,
 };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CARNIVORE, HERBIVORE } from "@eco/shared";
-import { createCarnivore } from "./agent";
+import { createCarnivore, createHerbivore } from "./agent";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
 import { createWorld, tickWorld } from "./world";
 
@@ -111,6 +111,28 @@ describe("chasse", () => {
     const carn = w.agents.filter((a) => a.species === "carnivore");
     expect(carn.length).toBe(w.config.initialCarnivores);
     expect(carn[0]!.ageSeconds).toBeGreaterThanOrEqual(CARNIVORE.adultAgeSeconds);
+  });
+
+  it("refuge du troupeau : une proie entourée échappe parfois à la morsure", () => {
+    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 1 });
+    const prey = w.agents.find((a) => a.species === "herbivore")!;
+    const wolf = w.agents.find((a) => a.species === "carnivore")!;
+    prey.energy = 0.15; // proie lente : le loup la rejoint
+    wolf.x = prey.x - 3; wolf.z = prey.z;
+    wolf.energy = 0.5; wolf.hydration = 1; wolf.stamina = 1;
+    wolf.nextHuntAgeSeconds = 0; wolf.nextMateAgeSeconds = 1e9;
+    // Un troupeau dense AUTOUR de la proie (confusion du prédateur).
+    for (let k = 0; k < 8; k++) {
+      const ang = (k / 8) * Math.PI * 2;
+      const buddy = createHerbivore(200 + k, prey.x + Math.cos(ang) * 2, prey.z + Math.sin(ang) * 2, w.rng);
+      w.agents.push(buddy);
+    }
+    let escaped = false;
+    for (let t = 0; t < 400 && !escaped; t++) {
+      if (wolf.transitions.some((tr) => tr.cause === "proie échappée")) escaped = true;
+      tickWorld(w);
+    }
+    expect(escaped).toBe(true); // au moins une morsure ratée grâce au troupeau
   });
 
   it("charogne : un carnivore affamé sans proie mange un cadavre proche", () => {
