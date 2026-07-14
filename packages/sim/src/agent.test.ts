@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_WORLD_CONFIG, createRng } from "@eco/shared";
-import { createHerbivore, findSpawnCell, findSpawnCells } from "./agent";
+import { CARNIVORE, DEFAULT_WORLD_CONFIG, HERBIVORE, createRng } from "@eco/shared";
+import { createCarnivore, createHerbivore, findSpawnCell, findSpawnCells, paramsOf } from "./agent";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
 import { ZONE_GRASS, generateTerrain } from "./terrain";
 
@@ -45,6 +45,23 @@ describe("findSpawnCells", () => {
       expect(seen.has(i)).toBe(false);
       seen.add(i);
     }
+  });
+});
+
+describe("carnivore", () => {
+  it("createCarnivore initialise un carnivore déterministe", () => {
+    const a = createCarnivore(9, 1, 2, createRng("c"));
+    const b = createCarnivore(9, 1, 2, createRng("c"));
+    expect(a).toEqual(b);
+    expect(a.species).toBe("carnivore");
+    expect(a.stamina).toBe(1);
+    expect(a.state).toBe("Wander");
+  });
+  it("paramsOf route vers les bons paramètres", () => {
+    const h = createHerbivore(1, 0, 0, createRng("h"));
+    const c = createCarnivore(2, 0, 0, createRng("c"));
+    expect(paramsOf(h)).toBe(HERBIVORE);
+    expect(paramsOf(c)).toBe(CARNIVORE);
   });
 });
 

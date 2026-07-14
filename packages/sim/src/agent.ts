@@ -1,4 +1,7 @@
-import { HERBIVORE, type AgentState, type Rng, type Transition, type WorldConfig } from "@eco/shared";
+import {
+  CARNIVORE, HERBIVORE,
+  type AgentState, type Rng, type SpeciesParams, type Transition, type WorldConfig,
+} from "@eco/shared";
 import { cellCenterX, cellCenterZ } from "./biomass";
 import { ZONE_GRASS, type TerrainData } from "./terrain";
 
@@ -8,7 +11,7 @@ import { ZONE_GRASS, type TerrainData } from "./terrain";
  */
 export interface Agent {
   id: number;
-  species: "herbivore";
+  species: "herbivore" | "carnivore";
   x: number; z: number;
   vx: number; vz: number;
   heading: number;          // radians, 0 = +Z (convention rotationY de Three)
@@ -21,6 +24,14 @@ export interface Agent {
   maxAgeSeconds: number;
   /** Âge avant lequel pas de reproduction (cooldown après naissance, retry sinon). */
   nextMateAgeSeconds: number;
+  /** 0..1 — vidée par le sprint de chasse, rechargée hors Hunt (carnivores). */
+  stamina: number;
+  /** Âge avant lequel pas de chasse (digestion après kill, retry après abandon). */
+  nextHuntAgeSeconds: number;
+  /** Menace perçue — écrite par tickAgent AVANT decide (decide reste pure). */
+  hasThreat: boolean;
+  threatX: number;
+  threatZ: number;
   wanderAngle: number;
   hasTarget: boolean; targetX: number; targetZ: number;
   memory: {
@@ -30,19 +41,36 @@ export interface Agent {
   transitions: Transition[]; // ring buffer (16 max) pour l'inspecteur
 }
 
-export function createHerbivore(id: number, x: number, z: number, rng: Rng): Agent {
+function createAgent(
+  species: "herbivore" | "carnivore", p: SpeciesParams,
+  id: number, x: number, z: number, rng: Rng,
+): Agent {
   return {
-    id, species: "herbivore", x, z, vx: 0, vz: 0, heading: 0,
+    id, species, x, z, vx: 0, vz: 0, heading: 0,
     energy: 0.8, hydration: 0.8, ageSeconds: 0,
     state: "Wander", deadForSeconds: 0,
     // ORDRE DES TIRAGES FIGÉ (déterminisme) : wanderAngle PUIS maxAge.
     wanderAngle: rng() * Math.PI * 2,
-    maxAgeSeconds: HERBIVORE.maxAgeSeconds + (rng() * 2 - 1) * HERBIVORE.maxAgeVarianceSeconds,
+    maxAgeSeconds: p.maxAgeSeconds + (rng() * 2 - 1) * p.maxAgeVarianceSeconds,
     nextMateAgeSeconds: 0,
+    stamina: 1, nextHuntAgeSeconds: 0,
+    hasThreat: false, threatX: 0, threatZ: 0,
     hasTarget: false, targetX: 0, targetZ: 0,
     memory: { hasWater: false, waterX: 0, waterZ: 0, hasFood: false, foodX: 0, foodZ: 0 },
     transitions: [],
   };
+}
+
+export function createHerbivore(id: number, x: number, z: number, rng: Rng): Agent {
+  return createAgent("herbivore", HERBIVORE, id, x, z, rng);
+}
+
+export function createCarnivore(id: number, x: number, z: number, rng: Rng): Agent {
+  return createAgent("carnivore", CARNIVORE, id, x, z, rng);
+}
+
+export function paramsOf(a: Agent): SpeciesParams {
+  return a.species === "herbivore" ? HERBIVORE : CARNIVORE;
 }
 
 /** Cellule d'herbe la plus proche du centre de l'île — point de spawn stable. */
