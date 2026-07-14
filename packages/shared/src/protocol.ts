@@ -23,8 +23,40 @@ export interface AgentSnapshot {
   state: AgentState;
   energy: number;
   hydration: number;
+  /** Vitalité 0..1 — ne bouge que dans le duel loup ↔ humain (Phase 6). */
+  health: number;
   /** true si ageSeconds ≥ adultAgeSeconds — calculé côté sim. */
   adult: boolean;
+}
+
+/**
+ * Intention du joueur pour le tick courant (Phase 6). Le client l'envoie à chaque
+ * frame (60 Hz) mais la sim ne tourne qu'à 20 Hz : `strike` et `interact` sont des
+ * IMPULSIONS COLLANTES — le client les lève, la SIM les baisse en les consommant.
+ * Sans ça, un clic tombé entre deux ticks serait perdu (ou compté deux fois).
+ */
+export interface PlayerIntent {
+  /** Direction de déplacement en repère MONDE, normalisée. (0,0) = immobile. */
+  moveX: number;
+  moveZ: number;
+  sprint: boolean;
+  strike: boolean;
+  interact: boolean;
+}
+
+/** Tout ce dont le HUD a besoin, émis à chaque tick. */
+export interface PlayerStatus {
+  id: number;
+  alive: boolean;
+  energy: number;
+  hydration: number;
+  health: number;
+  stamina: number;
+  survivedSeconds: number;
+  preyKilled: number;
+  wolvesKilled: number;
+  /** Loups qui te traquent en ce moment — la jauge de tension. */
+  hunters: number;
 }
 
 /** Vue complète d'un agent, à la demande — pour l'inspecteur (débuggabilité). */
@@ -45,6 +77,8 @@ export interface TickSnapshot {
   timeOfDay: number;
   lastTickDurationMs: number;
   agents: AgentSnapshot[];
+  /** null tant que le joueur n'est pas entré en jeu (Phase 6). */
+  player: PlayerStatus | null;
 }
 
 /**
@@ -67,4 +101,13 @@ export interface SimHost {
   /** Perturbations (Phase 5) : ajoute un agent au clic ; module la biomasse. */
   spawnAgent(species: "herbivore" | "carnivore" | "human", x: number, z: number): void;
   applyEnvironment(kind: "drought" | "abundance"): void;
+  /** Phase 6 — incarnation. */
+  setPlayerIntent(intent: PlayerIntent): void;
+  /** Fait naître (ou renaître) l'humain du joueur, et en prend les commandes. */
+  spawnPlayer(): void;
+  /**
+   * Prend ou lâche les commandes de l'humain courant (Tab). Lâché, il n'est PAS
+   * supprimé : la FSM reprend la main et il continue de vivre en IA.
+   */
+  setPlayerControl(controlled: boolean): void;
 }

@@ -65,6 +65,17 @@ export interface CarnivoreParams extends SpeciesParams {
   huntRetrySeconds: number;      // délai après un abandon (épuisé / aucune proie)
   homeRange: number;             // m — au-delà, un carnivore repu rentre vers sa tanière
   homingWeight: number;          // force du rappel vers la tanière (0..1 de maxSpeed)
+  // --- Duel loup ↔ humain (Phase 6). N'affecte PAS la prédation des herbivores. ---
+  /** Congénères mini dans humanHuntPackRadius pour OSER s'en prendre à un humain. */
+  humanHuntPackMin: number;
+  /** Idem, la nuit : seuil abaissé — ils sont plus hardis. */
+  humanHuntPackMinNight: number;
+  /** m — rayon dans lequel on compte la meute. */
+  humanHuntPackRadius: number;
+  /** Vitalité retirée à l'humain par morsure. */
+  biteDamage: number;
+  /** s — délai entre deux morsures d'un même loup. */
+  biteCooldownSeconds: number;
 }
 
 /** L'humain chasse avec la même machinerie que le carnivore (mêmes champs). */
@@ -122,6 +133,11 @@ export const CARNIVORE: CarnivoreParams = {
   preyRefugeRadius: 6, preyRefugePerNeighbor: 0.02, preyRefugeMaxChance: 0.12,
   huntCooldownSeconds: 40, huntRetrySeconds: 6,
   homeRange: 400, homingWeight: 0.35,
+  // Un loup SEUL n'ose pas l'humain ; il en faut 2 autour de lui. La nuit, un
+  // seul compagnon suffit. 3 morsures tuent (0.34) ; à 1,5 s de cadence, une
+  // meute de trois dévore un homme en ~5 s.
+  humanHuntPackMin: 2, humanHuntPackMinNight: 1, humanHuntPackRadius: 35,
+  biteDamage: 0.34, biteCooldownSeconds: 1.5,
 };
 
 /**
@@ -147,4 +163,48 @@ export const HUMAN: HumanParams = {
   preyRefugeRadius: 6, preyRefugePerNeighbor: 0, preyRefugeMaxChance: 0, // insensible au troupeau
   huntCooldownSeconds: 30, huntRetrySeconds: 5,
   homeRange: 1e9, homingWeight: 0, // pas de tanière
+  // Inutilisés (l'humain n'est pas un loup) mais requis par le type.
+  humanHuntPackMin: 0, humanHuntPackMinNight: 0, humanHuntPackRadius: 0,
+  biteDamage: 0, biteCooldownSeconds: 0,
+};
+
+/**
+ * Le JOUEUR (Phase 6). L'humain IA (`HUMAN`) garde ses valeurs : il reste l'outil
+ * de perturbation de la Phase 5. Le joueur, lui, est réglé pour le *game feel*.
+ *
+ * L'ÉQUATION DE LA FUITE : le loup sprinte à 12 m/s, le joueur à 11 — le loup
+ * gagne 1 m/s. Depuis ses 45 m de portée de sprint il lui faudrait ~45 s pour
+ * toucher, mais son souffle ne dure que 25 s : IL ABANDONNE AVANT. On ne fuit pas
+ * par la vitesse, on fuit par le souffle (30 s pour le joueur). Surpris à 10 m,
+ * en revanche, on est mordu en 10 s — et trois morsures tuent.
+ */
+export interface PlayerParams extends HumanParams {
+  maxHealth: number;
+  healthRegenPerSec: number;
+  /** s sans blessure avant que la cicatrisation ne commence (jamais en plein combat). */
+  healthRegenDelaySeconds: number;
+  strikeRange: number;
+  strikeCooldownSeconds: number;
+  /** Vitalité retirée à un loup par coup. 0.25 → 4 coups à mains nues. */
+  strikeDamageCarnivore: number;
+  /** Énergie gagnée par seconde en dévorant une carcasse. */
+  eatCorpsePerSec: number;
+  /** m — portée pour dévorer une carcasse / boire à la rive. */
+  interactRange: number;
+}
+
+export const PLAYER: PlayerParams = {
+  ...HUMAN,
+  maxSpeed: 5,
+  sprintSpeed: 11,              // le loup fait 12 : il te rattrape (voir ci-dessus)
+  staminaDrainPerSec: 1 / 30,   // 30 s de souffle — le loup n'en a que 25
+  staminaRegenPerSec: 1 / 12,
+  maxHealth: 1,
+  healthRegenPerSec: 0.02,      // ~50 s pour cicatriser entièrement
+  healthRegenDelaySeconds: 8,
+  strikeRange: 2.5,
+  strikeCooldownSeconds: 0.8,
+  strikeDamageCarnivore: 0.25,  // 4 coups pour abattre un loup à mains nues
+  eatCorpsePerSec: 0.25,        // ~4 s pour un bon repas
+  interactRange: 3,
 };
