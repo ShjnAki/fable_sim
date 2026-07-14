@@ -1,5 +1,5 @@
 import { HERBIVORE, type SimHost, type TickSnapshot, type WorldConfig } from "@eco/shared";
-import { createWorld, makeSnapshot, tickWorld } from "@eco/sim";
+import { createWorld, makeSnapshot, spawnAgentAt, tickWorld } from "@eco/sim";
 import { advanceAccumulator } from "../loop/accumulator";
 
 /** Sim dans le thread principal — le rendu reste spectateur (architecture §2). */
@@ -40,6 +40,16 @@ export function createMainThreadHost(overrides: Partial<WorldConfig> = {}): SimH
     },
     setSpeed(multiplier: number): void {
       speed = multiplier;
+    },
+    getSpeed: () => speed,
+    spawnAgent(species, x, z): void {
+      spawnAgentAt(world, species, x, z);
+    },
+    applyEnvironment(kind): void {
+      const v = world.biomass.values;
+      for (let i = 0; i < v.length; i++) {
+        v[i] = kind === "drought" ? v[i]! * 0.25 : Math.min(1, v[i]! * 2 + 0.3);
+      }
     },
   };
 }
