@@ -156,6 +156,23 @@ function herdEscapeChance(world: World, prey: Agent, p: CarnivoreParams): number
   return Math.min(p.preyRefugeMaxChance, refugeCount * p.preyRefugePerNeighbor);
 }
 
+// Entourage (herbivores) : assez de congénères proches pour oser dormir ?
+let shelterSeeker: Agent;
+let shelterCount = 0;
+function countHerdShelter(n: Agent): void {
+  if (n.id !== shelterSeeker.id && n.species === "herbivore" && n.state !== "Dead") shelterCount++;
+}
+function isSheltered(world: World, a: Agent): boolean {
+  shelterSeeker = a; shelterCount = 0;
+  forEachNeighbor(world.grid, a.x, a.z, HERBIVORE.sleepHerdRadius, countHerdShelter);
+  return shelterCount >= HERBIVORE.sleepHerdMin;
+}
+
+/** Valeur nutritive d'une proie/charogne selon l'âge : juvénile < adulte. */
+export function preyEnergyValue(prey: Agent): number {
+  return 0.4 + 0.6 * Math.min(1, prey.ageSeconds / paramsOf(prey).adultAgeSeconds);
+}
+
 // Perception de menace (herbivores) — état module, zéro alloc.
 let threatSeeker: Agent;
 let threatBest: Agent | null = null;
@@ -166,9 +183,13 @@ function considerThreat(n: Agent): void {
   const d2 = dx * dx + dz * dz;
   if (d2 < threatBestD2) { threatBestD2 = d2; threatBest = n; }
 }
-/** Écrit hasThreat/threatX/threatZ. Hystérésis : rayon élargi si on fuit déjà. */
-function perceiveThreat(world: World, a: Agent, p: HerbivoreParams): void {
-  const r = a.hasThreat ? p.fleeSafeRadius : p.fleeTriggerRadius;
+/**
+ * Écrit hasThreat/threatX/threatZ. Hystérésis : rayon élargi si on fuit déjà.
+ * `overrideR` force un rayon (ex : perception réduite en dormant — réveil au
+ * ras du prédateur).
+ */
+function perceiveThreat(world: World, a: Agent, p: HerbivoreParams, overrideR?: number): void {
+  const r = overrideR ?? (a.hasThreat ? p.fleeSafeRadius : p.fleeTriggerRadius);
   threatSeeker = a; threatBest = null; threatBestD2 = r * r;
   forEachNeighbor(world.grid, a.x, a.z, r, considerThreat);
   if (threatBest !== null) {
@@ -211,8 +232,10 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
     kill(world, a, "vieillesse");
     return;
   }
-  a.energy -= p.energyDecayPerSec * dt;
-  a.hydration -= p.hydrationDecayPerSec * dt;
+  // En dormant, le métabolisme tourne au ralenti (repos).
+  const metab = a.state === "Sleep" ? HERBIVORE.sleepMetabolism : 1;
+  a.energy -= p.energyDecayPerSec * dt * metab;
+  a.hydration -= p.hydrationDecayPerSec * dt * metab;
   if (a.hydration <= 0) {
     a.hydration = 0;
     kill(world, a, "mort de soif");
@@ -231,7 +254,10 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
     : world.carnivoreCount < CARNIVORE.rarityThreshold;
   let d = null;
   if (a.species === "herbivore") {
-    perceiveThreat(world, a, HERBIVORE);
+    a.night = world.isNight;
+    a.sheltered = world.isNight && isSheltered(world, a); // requête grille : la nuit seulement
+    // Endormi : perception de menace réduite → le prédateur approche au ras.
+    perceiveThreat(world, a, HERBIVORE, a.state === "Sleep" ? HERBIVORE.sleepWakeRadius : undefined);
     d = decideHerbivore(a, HERBIVORE);
   } else {
     if (a.state !== "Hunt") {
@@ -395,7 +421,8 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
           wander(a, rng, pc.maxSpeed, pc.maxForce, steer);
         } else {
           kill(world, prey, "prédation");
-          a.energy = Math.min(1, a.energy + pc.killEnergyGain);
+          // Valeur selon l'âge : un adulte nourrit bien plus qu'un juvénile.
+          a.energy = Math.min(1, a.energy + pc.killEnergyGain * preyEnergyValue(prey));
           a.nextHuntAgeSeconds = a.ageSeconds + pc.huntCooldownSeconds;
           applyTransition(a, "Wander", "proie tuée", world.tickCount);
         }
@@ -414,13 +441,16 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       arrive(a, corpse.x, corpse.z, 3, pc.maxSpeed, pc.maxForce, steer);
       const sdx = corpse.x - a.x, sdz = corpse.z - a.z;
       if (sdx * sdx + sdz * sdz < pc.killDistance * pc.killDistance) {
-        a.energy = Math.min(1, a.energy + pc.scavengeEnergyGain);
+        a.energy = Math.min(1, a.energy + pc.scavengeEnergyGain * preyEnergyValue(corpse));
         corpse.deadForSeconds = Infinity; // consommée : retirée au nettoyage du tick
         a.nextHuntAgeSeconds = a.ageSeconds + pc.huntCooldownSeconds;
         applyTransition(a, "Wander", "charogne mangée", world.tickCount);
       }
       break;
     }
+    case "Sleep":
+      a.vx = a.vz = 0; moving = false; // au repos, immobile
+      break;
     case "Flee": {
       const fdx = a.x - a.threatX, fdz = a.z - a.threatZ;
       const dist = Math.hypot(fdx, fdz) || 1;

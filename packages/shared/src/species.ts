@@ -84,7 +84,7 @@ export const HERBIVORE: HerbivoreParams = {
   seekFoodBelow: 0.6, stopEatAt: 0.9, minFoodBiomass: 0.25,
   boidsRadius: 8, separationWeight: 1.2, alignmentWeight: 0.4, cohesionWeight: 0.35,
   fleeTriggerRadius: 8, fleeSafeRadius: 14, fleeBoost: 1.5,
-  sleepHerdMin: 4, sleepHerdRadius: 10, sleepMetabolism: 0.5, sleepWakeRadius: 8,
+  sleepHerdMin: 4, sleepHerdRadius: 10, sleepMetabolism: 0.5, sleepWakeRadius: 4,
 };
 
 export const CARNIVORE: CarnivoreParams = {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CARNIVORE, HERBIVORE } from "@eco/shared";
 import { createCarnivore, createHerbivore } from "./agent";
+import { preyEnergyValue } from "./agentTick";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
 import { createWorld, tickWorld } from "./world";
 
@@ -384,5 +385,25 @@ describe("reproduction", () => {
     for (let t = 0; t < 1500; t++) { tickWorld(w1); tickWorld(w2); }
     expect(w1.agents.map((a) => [a.id, a.x, a.z, a.state]))
       .toEqual(w2.agents.map((a) => [a.id, a.x, a.z, a.state]));
+  });
+});
+
+describe("sommeil nocturne", () => {
+  it("des herbivores entourés la nuit finissent par dormir", () => {
+    const w = createWorld({ initialHerbivores: 10, initialCarnivores: 0 });
+    // regrouper le troupeau serré et le placer en pleine nuit
+    for (const h of w.agents) { h.x = (h.id % 3) * 3; h.z = ((h.id / 3) | 0) * 3; }
+    w.simTimeSeconds = 0.9 * w.config.dayLengthSeconds;
+    for (let t = 0; t < 80; t++) tickWorld(w);
+    expect(w.agents.some((a) => a.state === "Sleep")).toBe(true);
+  });
+
+  it("une proie adulte nourrit plus qu'un juvénile", () => {
+    const rng = () => 0.5;
+    const adult = createHerbivore(1, 0, 0, rng);
+    adult.ageSeconds = HERBIVORE.adultAgeSeconds * 2;
+    const juv = createHerbivore(2, 0, 0, rng);
+    juv.ageSeconds = 1;
+    expect(preyEnergyValue(adult)).toBeGreaterThan(preyEnergyValue(juv));
   });
 });
