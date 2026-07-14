@@ -38,6 +38,11 @@ export interface HerbivoreParams extends SpeciesParams {
   fleeTriggerRadius: number;     // m — un carnivore plus proche déclenche Flee
   fleeSafeRadius: number;        // m — hystérésis : on ne se calme qu'au-delà
   fleeBoost: number;             // multiplicateur de vitesse en fuite
+  // sommeil groupé nocturne (Phase 4 suite)
+  sleepHerdMin: number;          // congénères mini autour pour oser dormir
+  sleepHerdRadius: number;       // m
+  sleepMetabolism: number;       // × décroissance faim/soif en dormant (repos)
+  sleepWakeRadius: number;       // m — un prédateur plus proche réveille (≪ fleeTrigger)
 }
 
 export interface CarnivoreParams extends SpeciesParams {
@@ -79,6 +84,7 @@ export const HERBIVORE: HerbivoreParams = {
   seekFoodBelow: 0.6, stopEatAt: 0.9, minFoodBiomass: 0.25,
   boidsRadius: 8, separationWeight: 1.2, alignmentWeight: 0.4, cohesionWeight: 0.35,
   fleeTriggerRadius: 8, fleeSafeRadius: 14, fleeBoost: 1.5,
+  sleepHerdMin: 4, sleepHerdRadius: 10, sleepMetabolism: 0.5, sleepWakeRadius: 8,
 };
 
 export const CARNIVORE: CarnivoreParams = {

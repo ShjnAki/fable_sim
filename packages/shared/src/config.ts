@@ -31,6 +31,9 @@ export interface WorldConfig {
   biomassRegrowthRate: number;
   /** Durée d'un jour complet en secondes de sim. */
   dayLengthSeconds: number;
+  /** Nuit = timeOfDay > nightStart OU < nightEnd (0=minuit, 0.5=midi). */
+  nightStart: number;
+  nightEnd: number;
   /** Fréquence de tick de la sim (Hz). */
   tickRateHz: number;
   /** Nombre d'herbivores au démarrage du monde. */
@@ -60,6 +63,8 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   biomassResolution: 128,
   biomassRegrowthRate: 0.12,
   dayLengthSeconds: 600,
+  nightStart: 0.80,
+  nightEnd: 0.22,
   tickRateHz: 20,
   initialHerbivores: 150,
   initialCarnivores: 8,
