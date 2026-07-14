@@ -7,13 +7,10 @@
 
 ## État actuel
 
-**Phase en cours :** Phase 3 — Population & voisinage
-**Statut :** terminée côté code (9 tâches du plan exécutées, 71 tests verts,
-typecheck OK). Attesté en headless : 30 fondateurs → attrition initiale (27)
-→ les naissances l'emportent (33+) ; graphe de population vivant ; charge
-600 agents = tick 0,80 ms (budget 3 ms). **Validation visuelle par Shin en
-attente** — vérifier notamment le 60 FPS à `?pop=600` sur vrai GPU.
-**Dernier commit pertinent :** test de charge (T8)
+**Phase en cours :** Phase 4 — Chaîne trophique
+**Statut :** démarrage (brainstorm puis plan à écrire). LA phase à risque du
+projet : tuning Lotka-Volterra — mitigation par harness headless accéléré.
+**Dernier commit pertinent :** validation Phase 3
 
 ---
 
@@ -126,7 +123,8 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
   50 tests, typecheck strict OK.
 
 ### Phase 3 — Population & voisinage
-- Statut : **code terminé le 2026-07-14, validation visuelle Shin en attente**
+- Statut : **VALIDÉE visuellement par Shin le 2026-07-14** — 60 FPS tenus à
+  `?pop=600` sur son GPU (critère de sortie rempli)
   (spec : `docs/superpowers/specs/2026-07-14-phase-3-population-design.md`,
   plan exécuté en entier :
   `docs/superpowers/plans/2026-07-14-phase-3-population-voisinage.md`)
