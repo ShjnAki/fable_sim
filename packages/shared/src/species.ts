@@ -79,7 +79,7 @@ export const HERBIVORE: HerbivoreParams = {
   // Cadavres persistants : ils sont le garde-manger de secours des prédateurs
   // dans le creux du cycle (sans quoi le creux touche l'extinction).
   maxAgeSeconds: 600, maxAgeVarianceSeconds: 120, corpseDespawnSeconds: 90,
-  rarityThreshold: 40,
+  rarityThreshold: 150,
   eatEnergyPerSec: 0.08, eatBiomassPerSec: 0.2,
   seekFoodBelow: 0.6, stopEatAt: 0.9, minFoodBiomass: 0.25,
   boidsRadius: 8, separationWeight: 1.2, alignmentWeight: 0.4, cohesionWeight: 0.35,
@@ -89,15 +89,18 @@ export const HERBIVORE: HerbivoreParams = {
 
 export const CARNIVORE: CarnivoreParams = {
   maxSpeed: 3.5, maxForce: 7, perceptionRadius: 170,
-  // Soif lente : un prédateur tire beaucoup d'eau de ses proies. Une soif
-  // rapide fragmentait chaque chasse (Drink → Hunt → Drink…) et les affamait.
-  // Métabolisme lent : un kill (1.0) doit couvrir la survie ET la reproduction
-  // (0.55) — sinon les loups meurent de faim même en chassant beaucoup.
-  energyDecayPerSec: 1 / 700, hydrationDecayPerSec: 1 / 400, drinkPerSec: 0.35,
+  // Grande réserve d'énergie (idée de Shin : « 150 vs 100 ») : un prédateur
+  // survit très longtemps sans manger, ce qui lui permet de traverser le creux
+  // du cycle (proies rares) sans mourir de faim avant que les proies remontent.
+  // Soif lente aussi (il tire son eau des proies) : évite de fragmenter la chasse.
+  energyDecayPerSec: 1 / 1300, hydrationDecayPerSec: 1 / 400, drinkPerSec: 0.35,
   criticalNeed: 0.25, seekWaterBelow: 0.45, stopDrinkAt: 0.95,
-  adultAgeSeconds: 65, mateEnergyMin: 0.82, mateHydrationMin: 0.6,
-  mateEnergyCost: 0.58, mateCooldownSeconds: 150, mateRetrySeconds: 15,
-  maxAgeSeconds: 1400, maxAgeVarianceSeconds: 250, corpseDespawnSeconds: 12,
+  // Reproduction assez vive pour RENOUVELER la cohorte (les fondateurs
+  // longévifs meurent de vieillesse en même temps) ; le pic reste plafonné par
+  // territoryMax, donc pas de boom malgré ce rythme.
+  adultAgeSeconds: 70, mateEnergyMin: 0.82, mateHydrationMin: 0.6,
+  mateEnergyCost: 0.6, mateCooldownSeconds: 160, mateRetrySeconds: 15,
+  maxAgeSeconds: 1400, maxAgeVarianceSeconds: 500, corpseDespawnSeconds: 12,
   rarityThreshold: 25,
   // territoryMax élevé : les clans (tanières + rappel) régulent déjà la densité
   // spatiale ; un cap serré ferait que les membres d'un même clan se
@@ -109,7 +112,7 @@ export const CARNIVORE: CarnivoreParams = {
   // territoryMax : cap la densité prédatrice (sans quoi ils surdépassent la
   // capacité de l'île — pic à 50 — puis s'effondrent tous ensemble).
   huntBelow: 0.9, huntCommitRadius: 60, sprintRange: 45,
-  territoryRadius: 80, territoryMax: 3, sprintSpeed: 12,
+  territoryRadius: 95, territoryMax: 2, sprintSpeed: 12,
   staminaDrainPerSec: 1 / 25, staminaRegenPerSec: 1 / 15,
   killEnergyGain: 1, killDistance: 2,
   scavengeRadius: 150, scavengeEnergyGain: 0.7,

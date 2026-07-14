@@ -168,9 +168,14 @@ function isSheltered(world: World, a: Agent): boolean {
   return shelterCount >= HERBIVORE.sleepHerdMin;
 }
 
-/** Valeur nutritive d'une proie/charogne selon l'âge : juvénile < adulte. */
+/**
+ * Valeur nutritive d'une proie/charogne selon l'âge : juvénile < adulte, mais
+ * un juvénile reste correctement nourrissant (plancher 0.7). Sans ce plancher,
+ * un boom de jeunes proies affame les prédateurs malgré l'abondance (effet
+ * émergent déstabilisant observé au harness).
+ */
 export function preyEnergyValue(prey: Agent): number {
-  return 0.4 + 0.6 * Math.min(1, prey.ageSeconds / paramsOf(prey).adultAgeSeconds);
+  return 0.7 + 0.3 * Math.min(1, prey.ageSeconds / paramsOf(prey).adultAgeSeconds);
 }
 
 // Perception de menace (herbivores) — état module, zéro alloc.

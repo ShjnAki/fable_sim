@@ -1,5 +1,41 @@
 # Tuning Phase 4 — journal des itérations
 
+## 🌙 Session « rythme nocturne » (2026-07-14) — meilleur résultat obtenu
+
+Features ajoutées (idées de Shin) : sommeil groupé nocturne des herbivores
+(proies vulnérables la nuit → chasse nocturne), grande réserve d'énergie
+carnivore (survie prolongée en disette), valeur nutritive de la proie selon
+l'âge + carcasse partagée, carnivores en cônes.
+
+**Résultat : équilibre quasi-stationnaire de ~35 minutes** (le meilleur du
+projet, de loin) : carnivores rivés à 22-27, herbivores à ~150-190, sur la
+graine par défaut. Puis effondrement lent (extinction carnivore vers t=2800-
+3800 s selon la graine). Ce n'est plus un cycle sauvage qui touche l'axe, mais
+un **point fixe lentement instable** : le système tient un plateau puis une
+fluctuation grandit et le fait basculer.
+
+Bugs/effets émergents corrigés en route :
+- **Boom de juvéniles = famine des prédateurs** : la valeur-selon-l'âge faisait
+  qu'un pic de jeunes proies (peu nourrissantes) affamait les prédateurs malgré
+  l'abondance. → plancher nutritif juvénile relevé à 0.7.
+- **Cohorte fondatrice qui s'éteint en bloc** : carnivores longévifs tous nés au
+  même âge → mortalité de vieillesse synchronisée. → variance d'âge doublée +
+  reproduction assez vive pour renouveler.
+
+Leviers qui ont fait la différence (config verrouillée) :
+- Plancher de proies (`rarityThreshold` herbivore = 150) : les proies restent
+  ≥ ~150, base alimentaire permanente pour les prédateurs.
+- Grande réserve carnivore (`energyDecayPerSec` 1/1300) : ils traversent le
+  creux sans mourir de faim (idée de Shin, décisive).
+- Pic prédateur plafonné (`territoryMax` 2, radius 95) : évite le
+  sur-dépassement qui vidait le garde-manger.
+
+**Reste : le plateau n'est pas éternel.** Options pour garantir le
+zéro-extinction strict (à décider avec Shin) : un plancher de recolonisation
+(quand les carnivores passent sous ~3, un individu réapparaît — filet de
+sécurité écologiquement défendable, garantit la victoire « pas d'extinction »).
+
+
 ## ⚠️ Bilan au 2026-07-14 (session clans + rivières)
 
 **Cinq BUGS structurels trouvés et corrigés** (ils rendaient tout tuning vain —
