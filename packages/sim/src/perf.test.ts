@@ -3,7 +3,8 @@ import { createWorld, tickWorld } from "./world";
 
 describe("charge — engagement architecture §11", () => {
   it("600 agents : tick moyen < 3 ms", () => {
-    const w = createWorld({ initialHerbivores: 600 });
+    // Sans carnivores : mesure comparable à la Phase 3 (600 herbivores purs).
+    const w = createWorld({ initialHerbivores: 600, initialCarnivores: 0 });
     expect(w.agents.length).toBe(600);
     for (let t = 0; t < 50; t++) tickWorld(w); // échauffement JIT
     const t0 = performance.now();

@@ -83,6 +83,23 @@ function findNearestMate(world: World, a: Agent): Agent | null {
   return mateBest;
 }
 
+// Recherche de proie (carnivores) — état module, zéro alloc.
+let preySeeker: Agent;
+let preyBest: Agent | null = null;
+let preyBestD2 = 0;
+function considerPrey(n: Agent): void {
+  if (n.species !== "herbivore") return;
+  const dx = n.x - preySeeker.x, dz = n.z - preySeeker.z;
+  const d2 = dx * dx + dz * dz;
+  if (d2 < preyBestD2) { preyBestD2 = d2; preyBest = n; }
+}
+function findNearestPrey(world: World, a: Agent): Agent | null {
+  preySeeker = a; preyBest = null;
+  preyBestD2 = CARNIVORE.perceptionRadius ** 2;
+  forEachNeighbor(world.grid, a.x, a.z, CARNIVORE.perceptionRadius, considerPrey);
+  return preyBest;
+}
+
 // Perception de menace (herbivores) — état module, zéro alloc.
 let threatSeeker: Agent;
 let threatBest: Agent | null = null;
@@ -219,6 +236,35 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       // assumé : sinon la séparation interdit le contact à < 2 m).
       boidsMode = d2 > 16 ? 1 : 0;
       if (d2 < 4 && a.id < mate.id) birth(world, a, mate);
+      break;
+    }
+    case "Hunt": {
+      const pc = CARNIVORE;
+      const prey = findNearestPrey(world, a);
+      if (!prey) {
+        a.nextHuntAgeSeconds = a.ageSeconds + pc.huntRetrySeconds;
+        applyTransition(a, "Wander", "aucune proie", world.tickCount);
+        wander(a, rng, pc.maxSpeed, pc.maxForce, steer);
+        break;
+      }
+      a.stamina -= pc.staminaDrainPerSec * dt;
+      if (a.stamina <= 0) {
+        a.stamina = 0;
+        a.nextHuntAgeSeconds = a.ageSeconds + pc.huntRetrySeconds;
+        applyTransition(a, "Wander", "épuisé", world.tickCount);
+        wander(a, rng, pc.maxSpeed, pc.maxForce, steer);
+        break;
+      }
+      seek(a, prey.x, prey.z, pc.sprintSpeed, pc.maxForce, steer);
+      speedCap = pc.sprintSpeed;
+      const hdx = prey.x - a.x, hdz = prey.z - a.z;
+      if (hdx * hdx + hdz * hdz < pc.killDistance * pc.killDistance) {
+        prey.vx = prey.vz = 0;
+        applyTransition(prey, "Dead", "prédation", world.tickCount);
+        a.energy = Math.min(1, a.energy + pc.killEnergyGain);
+        a.nextHuntAgeSeconds = a.ageSeconds + pc.huntCooldownSeconds;
+        applyTransition(a, "Wander", "proie tuée", world.tickCount);
+      }
       break;
     }
     case "Flee": {

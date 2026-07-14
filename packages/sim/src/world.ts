@@ -1,8 +1,8 @@
 import {
-  DEFAULT_WORLD_CONFIG, HERBIVORE, createRng,
+  CARNIVORE, DEFAULT_WORLD_CONFIG, HERBIVORE, createRng,
   type Rng, type TickSnapshot, type WorldConfig,
 } from "@eco/shared";
-import { createHerbivore, findSpawnCells, paramsOf, type Agent } from "./agent";
+import { createCarnivore, createHerbivore, findSpawnCells, paramsOf, type Agent } from "./agent";
 import { tickAgent } from "./agentTick";
 import { createBiomass, regrowBiomass, type BiomassField } from "./biomass";
 import { createSpatialGrid, rebuildGrid, type SpatialGrid } from "./spatialGrid";
@@ -26,13 +26,19 @@ export function createWorld(overrides: Partial<WorldConfig> = {}): World {
   const config: WorldConfig = { ...DEFAULT_WORLD_CONFIG, ...overrides };
   const terrain = generateTerrain(config);
   const rng = createRng(config.seed + ":world");
-  const spawns = findSpawnCells(terrain, config, config.initialHerbivores);
+  const spawns = findSpawnCells(
+    terrain, config, config.initialHerbivores + config.initialCarnivores,
+  );
   const agents = spawns.map((s, k) => {
-    const a = createHerbivore(k + 1, s.x, s.z, rng);
-    // Les fondateurs sont adultes, avec un premier essai de reproduction étalé
-    // dans le temps (évite un baby-boom synchronisé au tick 1).
-    a.ageSeconds = HERBIVORE.adultAgeSeconds;
-    a.nextMateAgeSeconds = a.ageSeconds + rng() * HERBIVORE.mateCooldownSeconds;
+    const isHerb = k < config.initialHerbivores;
+    const a = isHerb
+      ? createHerbivore(k + 1, s.x, s.z, rng)
+      : createCarnivore(k + 1, s.x, s.z, rng);
+    // Les fondateurs sont adultes, premiers essais étalés (pas de rush au tick 1).
+    const p = isHerb ? HERBIVORE : CARNIVORE;
+    a.ageSeconds = p.adultAgeSeconds;
+    a.nextMateAgeSeconds = a.ageSeconds + rng() * p.mateCooldownSeconds;
+    if (!isHerb) a.nextHuntAgeSeconds = a.ageSeconds + rng() * 20;
     return a;
   });
   return {
@@ -42,7 +48,7 @@ export function createWorld(overrides: Partial<WorldConfig> = {}): World {
     agents,
     grid: createSpatialGrid(config),
     rng,
-    nextAgentId: config.initialHerbivores + 1,
+    nextAgentId: config.initialHerbivores + config.initialCarnivores + 1,
     // On démarre en matinée (30 % du jour) pour que la première vue soit éclairée.
     simTimeSeconds: 0.3 * config.dayLengthSeconds,
     tickCount: 0,

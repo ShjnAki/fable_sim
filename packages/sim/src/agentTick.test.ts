@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HERBIVORE } from "@eco/shared";
+import { CARNIVORE, HERBIVORE } from "@eco/shared";
 import { createCarnivore } from "./agent";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
 import { createWorld, tickWorld } from "./world";
@@ -7,13 +7,14 @@ import { createWorld, tickWorld } from "./world";
 describe("un agent qui vit", () => {
   it("le monde spawne initialHerbivores adultes sur l'herbe", () => {
     const w = createWorld();
-    expect(w.agents.length).toBe(w.config.initialHerbivores);
-    expect(w.agents[0]!.state).toBe("Wander");
-    expect(w.agents[0]!.ageSeconds).toBeGreaterThanOrEqual(HERBIVORE.adultAgeSeconds);
+    const herbs = w.agents.filter((a) => a.species === "herbivore");
+    expect(herbs.length).toBe(w.config.initialHerbivores);
+    expect(herbs[0]!.state).toBe("Wander");
+    expect(herbs[0]!.ageSeconds).toBeGreaterThanOrEqual(HERBIVORE.adultAgeSeconds);
   });
 
   it("meurt de vieillesse à son âge max", () => {
-    const w = createWorld({ initialHerbivores: 1 });
+    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 0 });
     const a = w.agents[0]!;
     a.maxAgeSeconds = a.ageSeconds + 1; // meurt dans 1 s de sim
     for (let t = 0; t < 30 && a.state !== "Dead"; t++) tickWorld(w);
@@ -22,7 +23,7 @@ describe("un agent qui vit", () => {
   });
 
   it("meurt de soif dans un monde sans eau", () => {
-    const w = createWorld({ waterLevel: -5, initialHerbivores: 1 }); // plus aucune cellule d'eau
+    const w = createWorld({ waterLevel: -5, initialHerbivores: 1, initialCarnivores: 0 }); // plus aucune cellule d'eau
     for (let t = 0; t < 3000 && w.agents.length > 0 && w.agents[0]!.state !== "Dead"; t++) {
       tickWorld(w);
     }
@@ -33,7 +34,7 @@ describe("un agent qui vit", () => {
   });
 
   it("boit quand il a soif près d'une rive", () => {
-    const w = createWorld({ initialHerbivores: 1 });
+    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 0 });
     const a = w.agents[0]!;
     const shore = w.terrain.shoreCells[0]!;
     a.x = cellCenterX(w.config, shore); a.z = cellCenterZ(w.config, shore);
@@ -45,7 +46,7 @@ describe("un agent qui vit", () => {
   });
 
   it("mange une cellule riche et la consomme", () => {
-    const w = createWorld({ initialHerbivores: 1 });
+    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 0 });
     const a = w.agents[0]!;
     a.energy = 0.3; a.hydration = 1.0;
     const i = cellIndexAt(w.config, a.x, a.z);
@@ -56,8 +57,8 @@ describe("un agent qui vit", () => {
   });
 
   it("est déterministe : même graine → même trajectoire", () => {
-    const w1 = createWorld({ initialHerbivores: 1 });
-    const w2 = createWorld({ initialHerbivores: 1 });
+    const w1 = createWorld({ initialHerbivores: 1, initialCarnivores: 0 });
+    const w2 = createWorld({ initialHerbivores: 1, initialCarnivores: 0 });
     for (let t = 0; t < 500; t++) { tickWorld(w1); tickWorld(w2); }
     expect(w1.agents[0]!.x).toBe(w2.agents[0]!.x);
     expect(w1.agents[0]!.z).toBe(w2.agents[0]!.z);
@@ -65,9 +66,57 @@ describe("un agent qui vit", () => {
   });
 
   it("le cadavre disparaît après corpseDespawnSeconds", () => {
-    const w = createWorld({ waterLevel: -5, initialHerbivores: 1 });
+    const w = createWorld({ waterLevel: -5, initialHerbivores: 1, initialCarnivores: 0 });
     for (let t = 0; t < 4000 && w.agents.length > 0; t++) tickWorld(w);
     expect(w.agents.length).toBe(0);
+  });
+});
+
+describe("chasse", () => {
+  /** Monde 1 proie + 1 chasseur affamé, positions et états contrôlés. */
+  function huntWorld(preyEnergy: number, gap: number) {
+    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 1 });
+    const prey = w.agents.find((a) => a.species === "herbivore")!;
+    const wolf = w.agents.find((a) => a.species === "carnivore")!;
+    prey.energy = preyEnergy; prey.hydration = 1;
+    wolf.x = prey.x - gap; wolf.z = prey.z;
+    wolf.energy = 0.5; wolf.hydration = 1; wolf.stamina = 1;
+    wolf.nextHuntAgeSeconds = 0; wolf.nextMateAgeSeconds = 1e9;
+    return { w, prey, wolf };
+  }
+
+  it("attrape une proie affamée (lente) : kill, gain, digestion", () => {
+    const { w, prey, wolf } = huntWorld(0.15, 8);
+    for (let t = 0; t < 300 && prey.state !== "Dead"; t++) tickWorld(w);
+    expect(prey.state).toBe("Dead");
+    expect(prey.transitions.at(-1)!.cause).toBe("prédation");
+    expect(wolf.energy).toBeGreaterThan(0.7); // 0.5 + 0.55 borné, moins la décroissance
+    expect(wolf.nextHuntAgeSeconds).toBeGreaterThan(wolf.ageSeconds);
+    expect(wolf.transitions.some((tr) => tr.cause === "proie tuée")).toBe(true);
+  });
+
+  it("abandonne épuisé face à une proie rapide partie de loin", () => {
+    const { w, prey, wolf } = huntWorld(1.0, 35);
+    for (let t = 0; t < 400 && !wolf.transitions.some((tr) => tr.cause === "épuisé"); t++) {
+      prey.energy = 1; // la proie reste fraîche : elle ne DOIT pas être rattrapée
+      tickWorld(w);
+    }
+    expect(wolf.transitions.some((tr) => tr.cause === "épuisé")).toBe(true);
+    expect(prey.state).not.toBe("Dead");
+  });
+
+  it("le monde spawne les carnivores demandés", () => {
+    const w = createWorld();
+    const carn = w.agents.filter((a) => a.species === "carnivore");
+    expect(carn.length).toBe(w.config.initialCarnivores);
+    expect(carn[0]!.ageSeconds).toBeGreaterThanOrEqual(CARNIVORE.adultAgeSeconds);
+  });
+
+  it("déterminisme complet à deux espèces", () => {
+    const w1 = createWorld(), w2 = createWorld();
+    for (let t = 0; t < 1500; t++) { tickWorld(w1); tickWorld(w2); }
+    expect(w1.agents.map((a) => [a.id, a.species, a.x, a.z, a.state]))
+      .toEqual(w2.agents.map((a) => [a.id, a.species, a.x, a.z, a.state]));
   });
 });
 
@@ -123,7 +172,7 @@ describe("appariement inter-espèces", () => {
 
 describe("reproduction", () => {
   it("deux adultes repus proches → naissance, coût payé, cooldown", () => {
-    const w = createWorld({ initialHerbivores: 2 });
+    const w = createWorld({ initialHerbivores: 2, initialCarnivores: 0 });
     const a = w.agents[0]!, b = w.agents[1]!;
     b.x = a.x + 1; b.z = a.z;
     for (const ag of [a, b]) {
@@ -142,7 +191,7 @@ describe("reproduction", () => {
   });
 
   it("sans partenaire à portée : retour Wander avec retry", () => {
-    const w = createWorld({ initialHerbivores: 1 });
+    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 0 });
     const a = w.agents[0]!;
     a.energy = 0.9; a.hydration = 0.9; a.nextMateAgeSeconds = 0;
     tickWorld(w); // decide → SeekMate, comportement → échec → Wander
@@ -152,7 +201,7 @@ describe("reproduction", () => {
   });
 
   it("la population croît depuis les fondateurs dans un monde riche", () => {
-    const w = createWorld();
+    const w = createWorld({ initialCarnivores: 0 }); // croissance pure, sans prédation
     let maxPop = w.agents.length;
     for (let t = 0; t < 4000; t++) {
       tickWorld(w);
