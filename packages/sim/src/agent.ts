@@ -34,6 +34,8 @@ export interface Agent {
   threatZ: number;
   /** Territoire saturé de congénères — bloque la reproduction (carnivores). */
   crowded: boolean;
+  /** Espèce en danger (effectif faible) — reproduction facilitée (refuge). */
+  rare: boolean;
   /** Clan (carnivores) et position de la tanière — rallient là pour se reproduire. */
   clanId: number;
   denX: number;
@@ -60,7 +62,7 @@ function createAgent(
     maxAgeSeconds: p.maxAgeSeconds + (rng() * 2 - 1) * p.maxAgeVarianceSeconds,
     nextMateAgeSeconds: 0,
     stamina: 1, nextHuntAgeSeconds: 0,
-    hasThreat: false, threatX: 0, threatZ: 0, crowded: false,
+    hasThreat: false, threatX: 0, threatZ: 0, crowded: false, rare: false,
     clanId: 0, denX: 0, denZ: 0,
     hasTarget: false, targetX: 0, targetZ: 0,
     memory: { hasWater: false, waterX: 0, waterZ: 0, hasFood: false, foodX: 0, foodZ: 0 },

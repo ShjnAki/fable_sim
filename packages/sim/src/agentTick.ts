@@ -77,7 +77,7 @@ let mateBest: Agent | null = null;
 let mateBestD2 = 0;
 function considerMate(n: Agent): void {
   if (n.id === mateSeeker.id || n.species !== mateSeeker.species
-      || !isMateEligible(n, paramsOf(n))) return;
+      || !isMateEligible(n, paramsOf(n), n.rare)) return;
   const dx = n.x - mateSeeker.x, dz = n.z - mateSeeker.z;
   const d2 = dx * dx + dz * dz;
   if (d2 < mateBestD2) { mateBestD2 = d2; mateBest = n; }
@@ -225,6 +225,10 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
   }
 
   // Perception (écrit sur l'agent) PUIS décision pure (architecture §7).
+  // Rareté : espèce sous son seuil critique → refuge de reproduction.
+  a.rare = a.species === "herbivore"
+    ? world.herbivoreCount < HERBIVORE.rarityThreshold
+    : world.carnivoreCount < CARNIVORE.rarityThreshold;
   let d = null;
   if (a.species === "herbivore") {
     perceiveThreat(world, a, HERBIVORE);
@@ -320,6 +324,17 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
       const pc = CARNIVORE;
       const prey = findNearestPrey(world, a);
       if (!prey) {
+        // Faim critique : une charogne SÛRE vaut mieux qu'une proie lointaine
+        // incertaine. Sans cette priorité, le carnivore court après un gibier
+        // hors d'atteinte en ignorant un cadavre voisin — et meurt de faim.
+        if (a.energy < pc.criticalNeed) {
+          const meal = findNearestCorpse(world, a);
+          if (meal) {
+            applyTransition(a, "Scavenge", "charogne repérée", world.tickCount);
+            a.targetX = meal.x; a.targetZ = meal.z; a.hasTarget = true;
+            break;
+          }
+        }
         // Rien à portée de sprint : traquer (au trot, sans vider la stamina)
         // une proie repérée plus loin — c'est la battue, elle mène le clan
         // hors de sa tanière vers les troupeaux.
@@ -344,16 +359,33 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
         wander(a, rng, pc.maxSpeed, pc.maxForce, steer);
         break;
       }
-      a.stamina -= pc.staminaDrainPerSec * dt;
-      if (a.stamina <= 0) {
-        a.stamina = 0;
-        a.nextHuntAgeSeconds = a.ageSeconds + pc.huntRetrySeconds;
-        applyTransition(a, "Wander", "épuisé", world.tickCount);
-        wander(a, rng, pc.maxSpeed, pc.maxForce, steer);
-        break;
+      // Chasse en DEUX TEMPS. Approche au trot (économe) tant que la proie est
+      // loin ; sprint (qui seul draine la stamina) au contact. Sans ça, le
+      // prédateur épuisait tout son souffle en course d'approche et finissait
+      // systématiquement « épuisé » sans jamais conclure.
+      const hdx0 = prey.x - a.x, hdz0 = prey.z - a.z;
+      const gap = Math.hypot(hdx0, hdz0);
+      const sprinting = gap < pc.sprintRange;
+
+      if (sprinting) {
+        a.stamina -= pc.staminaDrainPerSec * dt;
+        if (a.stamina <= 0) {
+          a.stamina = 0;
+          // Repos forcé : le temps de récupérer son souffle. Sans ce délai, un
+          // carnivore affamé repart sprinter à vide et meurt entouré de gibier.
+          a.nextHuntAgeSeconds = a.ageSeconds
+            + Math.max(pc.huntRetrySeconds, 0.6 / pc.staminaRegenPerSec);
+          applyTransition(a, "Wander", "épuisé", world.tickCount);
+          wander(a, rng, pc.maxSpeed, pc.maxForce, steer);
+          break;
+        }
       }
-      seek(a, prey.x, prey.z, pc.sprintSpeed, pc.maxForce, steer);
-      speedCap = pc.sprintSpeed;
+      // Interception : viser où la proie SERA (sinon on la « pousse » devant soi).
+      const chaseSpeed = sprinting ? pc.sprintSpeed : pc.maxSpeed;
+      const lead = Math.min(2.5, gap / chaseSpeed);
+      seek(a, prey.x + prey.vx * lead, prey.z + prey.vz * lead,
+        chaseSpeed, pc.maxForce, steer);
+      speedCap = chaseSpeed;
       const hdx = prey.x - a.x, hdz = prey.z - a.z;
       if (hdx * hdx + hdz * hdz < pc.killDistance * pc.killDistance) {
         // Refuge du troupeau : une proie entourée peut déjouer la morsure.
@@ -437,7 +469,16 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
     } else if (walkable(a.x, nz)) {
       a.z = nz; a.vx = 0;
     } else {
+      // Cul-de-sac (coincé dans un renfoncement d'eau) : se dégager vers la
+      // terre la plus proche. Sans ça l'agent reste figé jusqu'à sa mort —
+      // on a vu des loups mourir de faim, immobiles, à 30 m d'une proie.
       a.vx = a.vz = 0;
+      const step = 2;
+      for (let k = 0; k < 8; k++) {
+        const ang = (k / 8) * Math.PI * 2;
+        const ex = a.x + Math.cos(ang) * step, ez = a.z + Math.sin(ang) * step;
+        if (walkable(ex, ez)) { a.x = ex; a.z = ez; break; }
+      }
     }
     const lim = world.config.sizeMeters / 2 - 2;
     a.x = Math.min(lim, Math.max(-lim, a.x));

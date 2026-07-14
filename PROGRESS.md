@@ -53,10 +53,12 @@ Tous vivent dans `DEFAULT_WORLD_CONFIG` (`packages/shared/src/config.ts`) :
 
 ## À retravailler (demandes de Shin)
 
-- **Le pont central ne fait pas naturel** (bande droite et plate au-dessus de
-  l'eau). À remplacer avant la Phase 5 par quelque chose d'organique : arche
-  rocheuse érodée, resserrement de méandre, ou gué de rochers émergés.
-  Paramètres actuels : `bridgeWidth/bridgeReach/bridgeHeight` (config).
+- ~~Le pont central ne fait pas naturel~~ → **RÉGLÉ** : les berges de rivière
+  sont maintenant en pente douce, les rivières se franchissent à gué et le pont
+  artificiel a été supprimé (`bridgeWidth: 0`).
+- **Équilibre Lotka-Volterra non stabilisé sur 2 h** : cycles réels et
+  coexistence de 40-50 min, mais le creux emporte les carnivores. Voir
+  `docs/tuning-phase4.md` pour le bilan et les pistes.
 
 ## Points fragiles connus
 

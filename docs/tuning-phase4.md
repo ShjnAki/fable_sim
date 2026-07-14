@@ -1,5 +1,45 @@
 # Tuning Phase 4 — journal des itérations
 
+## ⚠️ Bilan au 2026-07-14 (session clans + rivières)
+
+**Cinq BUGS structurels trouvés et corrigés** (ils rendaient tout tuning vain —
+c'était la vraie cause de l'effondrement des carnivores, pas les paramètres) :
+
+1. **La moitié des carnivores spawnaient DANS L'EAU** (décalage aléatoire autour
+   de tanières riveraines) : figés à vie (aucun mouvement autorisé), ils
+   mouraient de soif en 120 s sans avoir jamais bougé.
+2. **Agents piégés en cul-de-sac contre l'eau** : vitesse remise à zéro à chaque
+   tick → immobiles jusqu'à la mort. On a vu un loup mourir de faim, figé, à
+   30 m d'une proie. → glissement le long des berges + dégagement.
+3. **Berges de rivière verticales** : infranchissables, les agents mouraient de
+   soif au bord de l'eau. → berges en pente douce (bonus : rivières
+   franchissables à gué, le pont artificiel devient inutile).
+4. **Chasse en un seul temps** : le loup vidait toute sa stamina en course
+   d'APPROCHE et arrivait épuisé → toutes ses chasses finissaient en « épuisé ».
+   → approche au trot, sprint seulement au contact (`sprintRange`).
+5. **Sprint déclenché trop tard** (20 m) alors que la proie fuit dès 8 m : le
+   loup poursuivait au trot (4 m/s) une proie fuyant à 6 m/s — course perdue
+   d'avance, 64 % de son temps passé en chasse sans jamais conclure.
+   → `sprintRange` 45 m.
+
+**État de l'équilibre** : les cycles Lotka-Volterra sont maintenant RÉELS et
+observables (proies ↗ → prédateurs ↗ avec retard → proies ↘ → prédateurs ↘),
+la coexistence tient **40 à 50 minutes** de temps simulé. Mais le creux du cycle
+finit par emporter les carnivores (extinction typique vers t=2500-3000 s).
+Le critère « ≥ 2 h sans extinction » n'est PAS atteint.
+
+Mécanismes de stabilisation implémentés (aucun n'a suffi seul) : territorialité,
+charognage (+ priorité charogne en faim critique), refuge du troupeau, refuge de
+rareté (reproduction facilitée sous seuil critique), clans à tanières migrantes.
+
+**Prochaine piste si Shin veut la stabilité stricte** : le mode d'échec restant
+est que les prédateurs surexploitent une base de proies trop étroite. Une piste
+propre serait une réponse fonctionnelle saturante explicite (les prédateurs
+chassent moins quand les proies sont rares, au lieu de s'acharner) ou une
+capacité de charge prédateur indépendante des proies (nombre fixe de sites de
+reproduction par clan).
+
+
 > Objectif : `pnpm harness hours=2` → STABLE (oscillations sans extinction ni
 > explosion) sur ≥ 2 graines. Diagnostic : compteurs de morts par cause
 > (`world.deaths`), affichés dans le verdict.

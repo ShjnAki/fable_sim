@@ -108,15 +108,24 @@ describe("chasse", () => {
     expect(wolf.transitions.some((tr) => tr.cause === "proie tuée")).toBe(true);
   });
 
-  it("abandonne épuisé si la proie reste hors d'atteinte", () => {
-    const { w, prey, wolf } = huntWorld(1.0, 30);
-    for (let t = 0; t < 400 && !wolf.transitions.some((tr) => tr.cause === "épuisé"); t++) {
-      // La proie est maintenue juste dans le rayon d'engagement, jamais atteignable.
-      prey.x = wolf.x + 30; prey.z = wolf.z; prey.energy = 1;
-      tickWorld(w);
+  it("le sprint consomme la stamina, l'approche au trot ne la consomme pas", () => {
+    // Approche lointaine (hors sprintRange) : le loup trotte, souffle intact.
+    const far = huntWorld(1.0, CARNIVORE.huntCommitRadius - 5);
+    for (let t = 0; t < 40; t++) {
+      far.prey.x = far.wolf.x + CARNIVORE.huntCommitRadius - 5; // reste loin devant
+      far.wolf.energy = 0.5; far.wolf.nextHuntAgeSeconds = 0;
+      tickWorld(far.w);
     }
-    expect(wolf.transitions.some((tr) => tr.cause === "épuisé")).toBe(true);
-    expect(prey.state).not.toBe("Dead");
+    expect(far.wolf.stamina).toBeGreaterThan(0.95); // trot : pas d'essoufflement
+
+    // Poursuite rapprochée (dans sprintRange) : le loup sprinte et s'essouffle.
+    const near = huntWorld(1.0, CARNIVORE.sprintRange - 4);
+    for (let t = 0; t < 40; t++) {
+      near.prey.x = near.wolf.x + CARNIVORE.sprintRange - 4; // toujours à portée de sprint
+      near.wolf.energy = 0.5; near.wolf.nextHuntAgeSeconds = 0;
+      tickWorld(near.w);
+    }
+    expect(near.wolf.stamina).toBeLessThan(far.wolf.stamina);
   });
 
   it("le monde spawne les carnivores demandés", () => {
@@ -273,8 +282,13 @@ describe("fuite", () => {
   });
 
   it("la fuite s'éloigne de la menace et dépasse maxSpeed", () => {
-    const w = createWorld({ initialHerbivores: 1, initialCarnivores: 0 });
+    // Terrain sans eau : on teste la vitesse de fuite, pas la navigation
+    // (une proie acculée contre une berge fuit forcément moins vite).
+    const w = createWorld({
+      initialHerbivores: 1, initialCarnivores: 0, riverWidth: 0, waterLevel: -100,
+    });
     const prey = w.agents[0]!;
+    prey.x = 0; prey.z = 0;
     prey.energy = 1;
     const wolf = createCarnivore(99, prey.x - 5, prey.z, w.rng);
     wolf.nextHuntAgeSeconds = 1e9;
@@ -363,7 +377,7 @@ describe("reproduction", () => {
       maxPop = Math.max(maxPop, w.agents.length);
     }
     expect(maxPop).toBeGreaterThan(w.config.initialHerbivores);
-  });
+  }, 30000); // population de départ élevée : dépasse le timeout Vitest par défaut
 
   it("déterminisme complet : même graine → mêmes agents après 1500 ticks", () => {
     const w1 = createWorld(), w2 = createWorld();

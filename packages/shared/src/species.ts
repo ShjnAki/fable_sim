@@ -18,6 +18,8 @@ export interface SpeciesParams {
   maxAgeSeconds: number;
   maxAgeVarianceSeconds: number; // ± variance individuelle (tirée au spawn)
   corpseDespawnSeconds: number;
+  /** Sous cet effectif, l'espèce est « rare » : reproduction facilitée (refuge). */
+  rarityThreshold: number;
 }
 
 export interface HerbivoreParams extends SpeciesParams {
@@ -41,6 +43,7 @@ export interface HerbivoreParams extends SpeciesParams {
 export interface CarnivoreParams extends SpeciesParams {
   huntBelow: number;             // seuil de faim qui déclenche la chasse
   huntCommitRadius: number;      // m — distance max d'engagement d'une proie (< perception)
+  sprintRange: number;           // m — en deçà, on sprinte (et on vide la stamina)
   territoryRadius: number;       // m — rayon de territoire (densité-dépendance)
   territoryMax: number;          // pas de reproduction si + de N congénères dans le territoire
   sprintSpeed: number;           // m/s en Hunt — vide la stamina
@@ -63,9 +66,15 @@ export const HERBIVORE: HerbivoreParams = {
   maxSpeed: 4, maxForce: 6, perceptionRadius: 60,
   energyDecayPerSec: 1 / 150, hydrationDecayPerSec: 1 / 130, drinkPerSec: 0.35,
   criticalNeed: 0.25, seekWaterBelow: 0.5, stopDrinkAt: 0.95,
-  adultAgeSeconds: 46, mateEnergyMin: 0.74, mateHydrationMin: 0.58,
-  mateEnergyCost: 0.38, mateCooldownSeconds: 66, mateRetrySeconds: 8,
-  maxAgeSeconds: 600, maxAgeVarianceSeconds: 120, corpseDespawnSeconds: 30,
+  // Fécondité proie : la brider assez pour que les prédateurs puissent la
+  // contenir (sinon les proies explosent, épuisent l'herbe et s'effondrent,
+  // entraînant les prédateurs dans leur chute).
+  adultAgeSeconds: 58, mateEnergyMin: 0.82, mateHydrationMin: 0.62,
+  mateEnergyCost: 0.42, mateCooldownSeconds: 112, mateRetrySeconds: 10,
+  // Cadavres persistants : ils sont le garde-manger de secours des prédateurs
+  // dans le creux du cycle (sans quoi le creux touche l'extinction).
+  maxAgeSeconds: 600, maxAgeVarianceSeconds: 120, corpseDespawnSeconds: 90,
+  rarityThreshold: 40,
   eatEnergyPerSec: 0.08, eatBiomassPerSec: 0.2,
   seekFoodBelow: 0.6, stopEatAt: 0.9, minFoodBiomass: 0.25,
   boidsRadius: 8, separationWeight: 1.2, alignmentWeight: 0.4, cohesionWeight: 0.35,
@@ -74,19 +83,31 @@ export const HERBIVORE: HerbivoreParams = {
 
 export const CARNIVORE: CarnivoreParams = {
   maxSpeed: 3.5, maxForce: 7, perceptionRadius: 170,
-  energyDecayPerSec: 1 / 500, hydrationDecayPerSec: 1 / 150, drinkPerSec: 0.25,
+  // Soif lente : un prédateur tire beaucoup d'eau de ses proies. Une soif
+  // rapide fragmentait chaque chasse (Drink → Hunt → Drink…) et les affamait.
+  // Métabolisme lent : un kill (1.0) doit couvrir la survie ET la reproduction
+  // (0.55) — sinon les loups meurent de faim même en chassant beaucoup.
+  energyDecayPerSec: 1 / 700, hydrationDecayPerSec: 1 / 400, drinkPerSec: 0.35,
   criticalNeed: 0.25, seekWaterBelow: 0.45, stopDrinkAt: 0.95,
-  adultAgeSeconds: 50, mateEnergyMin: 0.62, mateHydrationMin: 0.55,
-  mateEnergyCost: 0.5, mateCooldownSeconds: 70, mateRetrySeconds: 12,
-  maxAgeSeconds: 900, maxAgeVarianceSeconds: 150, corpseDespawnSeconds: 12,
+  adultAgeSeconds: 65, mateEnergyMin: 0.82, mateHydrationMin: 0.6,
+  mateEnergyCost: 0.58, mateCooldownSeconds: 150, mateRetrySeconds: 15,
+  maxAgeSeconds: 1400, maxAgeVarianceSeconds: 250, corpseDespawnSeconds: 12,
+  rarityThreshold: 25,
   // territoryMax élevé : les clans (tanières + rappel) régulent déjà la densité
   // spatiale ; un cap serré ferait que les membres d'un même clan se
   // déclarent mutuellement « crowded » et ne se reproduiraient jamais.
-  huntBelow: 0.75, huntCommitRadius: 55, territoryRadius: 55, territoryMax: 12, sprintSpeed: 8,
-  staminaDrainPerSec: 1 / 12, staminaRegenPerSec: 1 / 20,
-  killEnergyGain: 0.72, killDistance: 1.5,
-  scavengeRadius: 110, scavengeEnergyGain: 0.55,
-  preyRefugeRadius: 6, preyRefugePerNeighbor: 0.05, preyRefugeMaxChance: 0.3,
+  // Le sprint (8 m/s) doit conclure AVANT l'épuisement : à 5,6 m/s pour une
+  // proie fraîche, on ne gagne que 2,4 m/s — donc on ne s'engage que de près.
+  // sprintRange > fleeTriggerRadius (8 m) ET assez grand pour couvrir la course :
+  // au trot (4 m/s) on ne rattrape jamais une proie qui fuit à 6 m/s.
+  // territoryMax : cap la densité prédatrice (sans quoi ils surdépassent la
+  // capacité de l'île — pic à 50 — puis s'effondrent tous ensemble).
+  huntBelow: 0.9, huntCommitRadius: 60, sprintRange: 45,
+  territoryRadius: 80, territoryMax: 3, sprintSpeed: 12,
+  staminaDrainPerSec: 1 / 25, staminaRegenPerSec: 1 / 15,
+  killEnergyGain: 1, killDistance: 2,
+  scavengeRadius: 150, scavengeEnergyGain: 0.7,
+  preyRefugeRadius: 6, preyRefugePerNeighbor: 0.02, preyRefugeMaxChance: 0.12,
   huntCooldownSeconds: 40, huntRetrySeconds: 6,
-  homeRange: 220, homingWeight: 0.45,
+  homeRange: 400, homingWeight: 0.35,
 };

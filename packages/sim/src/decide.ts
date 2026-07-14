@@ -3,12 +3,24 @@ import type { Agent } from "./agent";
 
 export interface Decision { state: AgentState; cause: string; }
 
-/** Éligible à la reproduction : adulte, repu, désaltéré, cooldown écoulé. */
-export function isMateEligible(a: Agent, p: SpeciesParams): boolean {
-  return a.ageSeconds >= p.adultAgeSeconds
-    && a.ageSeconds >= a.nextMateAgeSeconds
-    && a.energy >= p.mateEnergyMin
-    && a.hydration >= p.mateHydrationMin;
+/**
+ * Éligible à la reproduction : adulte, repu, désaltéré, cooldown écoulé.
+ * REFUGE DE RARETÉ : quand l'espèce est en danger (effectif < rarityThreshold),
+ * ses survivants se reproduisent bien plus facilement — moins de compétition,
+ * plus de ressources par tête. C'est ce qui empêche le creux du cycle
+ * proie/prédateur de toucher l'extinction (cf. docs/tuning-phase4.md).
+ */
+export function isMateEligible(a: Agent, p: SpeciesParams, rare = false): boolean {
+  const energyMin = rare ? p.mateEnergyMin * 0.6 : p.mateEnergyMin;
+  const hydrationMin = rare ? p.mateHydrationMin * 0.6 : p.mateHydrationMin;
+  const adultAge = rare ? p.adultAgeSeconds * 0.6 : p.adultAgeSeconds;
+  const cooldownOk = rare
+    ? a.ageSeconds >= a.nextMateAgeSeconds - p.mateCooldownSeconds * 0.6
+    : a.ageSeconds >= a.nextMateAgeSeconds;
+  return a.ageSeconds >= adultAge
+    && cooldownOk
+    && a.energy >= energyMin
+    && a.hydration >= hydrationMin;
 }
 
 /**
@@ -48,7 +60,7 @@ export function decideHerbivore(a: Agent, p: HerbivoreParams): Decision | null {
   if (a.state === "Wander") {
     if (a.hydration < p.seekWaterBelow) return { state: "SeekWater", cause: "soif" };
     if (a.energy < p.seekFoodBelow) return { state: "SeekFood", cause: "faim" };
-    if (isMateEligible(a, p)) return { state: "SeekMate", cause: "prêt à se reproduire" };
+    if (isMateEligible(a, p, a.rare)) return { state: "SeekMate", cause: "prêt à se reproduire" };
   }
   return null;
 }
@@ -79,7 +91,7 @@ export function decideCarnivore(a: Agent, p: CarnivoreParams): Decision | null {
     if (a.hydration < p.seekWaterBelow) return { state: "SeekWater", cause: "soif" };
     if (a.energy < p.huntBelow && canHunt) return { state: "Hunt", cause: "faim" };
     // Territorialité : pas de reproduction en territoire saturé (densité-dépendance).
-    if (isMateEligible(a, p) && !a.crowded) return { state: "SeekMate", cause: "prêt à se reproduire" };
+    if (isMateEligible(a, p, a.rare) && (!a.crowded || a.rare)) return { state: "SeekMate", cause: "prêt à se reproduire" };
   }
   return null;
 }

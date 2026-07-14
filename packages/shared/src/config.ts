@@ -58,10 +58,10 @@ export const DEFAULT_WORLD_CONFIG: WorldConfig = {
   bridgeHeight: 3,
   rockSlope: 0.7,
   biomassResolution: 128,
-  biomassRegrowthRate: 0.08,
+  biomassRegrowthRate: 0.12,
   dayLengthSeconds: 600,
   tickRateHz: 20,
-  initialHerbivores: 60,
-  initialCarnivores: 12,
+  initialHerbivores: 150,
+  initialCarnivores: 8,
   carnivoreClans: 3,
 };

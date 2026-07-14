@@ -19,6 +19,9 @@ export interface World {
   grid: SpatialGrid;
   /** Compteurs cumulés de morts par cause — diagnostic de tuning (Phase 4). */
   deaths: Record<string, number>;
+  /** Effectifs vivants du tick, par espèce (recalculés à chaque tick). */
+  herbivoreCount: number;
+  carnivoreCount: number;
   /** RNG unique de la sim vivante — tout tirage passe par lui (déterminisme). */
   rng: Rng;
   nextAgentId: number;
@@ -71,6 +74,8 @@ export function createWorld(overrides: Partial<WorldConfig> = {}): World {
     agents,
     grid: createSpatialGrid(config),
     deaths: {},
+    herbivoreCount: config.initialHerbivores,
+    carnivoreCount: config.initialCarnivores,
     rng,
     nextAgentId: config.initialHerbivores + config.initialCarnivores + 1,
     // On démarre en matinée (30 % du jour) pour que la première vue soit éclairée.
@@ -85,6 +90,17 @@ export function tickWorld(world: World): void {
   world.simTimeSeconds += dt;
   world.tickCount += 1;
   regrowBiomass(world.biomass, world.terrain, world.config, dt);
+  // Effectifs vivants : servent au refuge démographique (une espèce devenue
+  // rare se reproduit plus facilement — sans quoi le creux du cycle
+  // proie/prédateur touche l'extinction, cf. docs/tuning-phase4.md).
+  let herb = 0, carn = 0;
+  for (const a of world.agents) {
+    if (a.state === "Dead") continue;
+    if (a.species === "herbivore") herb++;
+    else carn++;
+  }
+  world.herbivoreCount = herb;
+  world.carnivoreCount = carn;
   rebuildGrid(world.grid, world.agents);
   const aliveCount = world.agents.length; // les nouveau-nés du tick attendront le suivant
   for (let i = 0; i < aliveCount; i++) {
