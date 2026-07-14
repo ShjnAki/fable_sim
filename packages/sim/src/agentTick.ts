@@ -2,7 +2,7 @@ import { HERBIVORE, type AgentState, type HerbivoreParams, type Rng } from "@eco
 import { createHerbivore, type Agent } from "./agent";
 import { cellCenterX, cellCenterZ, cellIndexAt } from "./biomass";
 import { accumulateBoids } from "./boids";
-import { decide, isMateEligible } from "./decide";
+import { decideHerbivore, isMateEligible } from "./decide";
 import { forEachNeighbor } from "./spatialGrid";
 import { arrive, wander, type SteerOut } from "./steering";
 import { ZONE_GRASS, sampleHeight } from "./terrain";
@@ -119,7 +119,7 @@ export function tickAgent(a: Agent, world: World, dt: number, rng: Rng): void {
     return;
   }
 
-  const d = decide(a, p);
+  const d = decideHerbivore(a, p);
   if (d) applyTransition(a, d.state, d.cause, world.tickCount);
 
   steer.ax = 0; steer.az = 0;
